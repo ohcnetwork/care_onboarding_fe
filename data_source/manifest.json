@@ -1,0 +1,20 @@
+{
+  "version": "2026-09-30",
+  "source": "ohcnetwork/care_desktop/data-loading/data",
+  "questionnaire_and_template_source": "Copied from CARE Desktop fixtures; its documented upstream ref is ENG-737, which is no longer resolvable on GitHub.",
+  "api_contract_review": {
+    "care": "c7b5d597fc406bc616ab87b06a6054d7f6d192f6",
+    "care_fe": "2546061ece7f2f8a10e6ff669ad3bceed2fb830f"
+  },
+  "included": {
+    "states": 36,
+    "districts": 726,
+    "questionnaires": 8,
+    "report_templates": 1
+  },
+  "clinical_catalog": {
+    "enabled": false,
+    "reason": "Supporting definition loaders, source-reference corrections and service/location mapping are required before clinical loading can be offered.",
+    "activity_definitions": 2023
+  }
+}

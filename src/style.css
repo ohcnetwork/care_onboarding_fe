@@ -1,0 +1,54 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "./";
+
+@theme {
+  --font-sans: "Figtree", sans-serif;
+  --color-ink: #111827;
+  --color-ink2: #374151;
+  --color-faint: #6b7280;
+  --color-line: #e5e7eb;
+  --color-hair: #f3f4f6;
+  --color-brand: #0d9f6e;
+  --color-brand-dark: #057a55;
+  --color-brand-ink: #046c4e;
+  --color-brand-bg: #def7ec;
+  --color-brand-line: #84e1bc;
+  --color-danger: #ef4444;
+  --color-danger-ink: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-line: #fecaca;
+  --color-danger-tint: #fef2f2;
+  --color-warn-bg: #fef3c7;
+  --color-warn-ink: #92400e;
+  --color-background: #f9fafb;
+  --color-foreground: #111827;
+  --color-muted-foreground: #6b7280;
+  --color-popover: #fff;
+  --color-popover-foreground: #111827;
+  --color-accent: #f3f4f6;
+  --color-accent-foreground: #111827;
+  --color-ring: #0d9f6e;
+  --shadow-pop: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.care-onboarding-fe {
+  font-family: "Figtree", sans-serif;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.care-onboarding-fe *,
+.care-onboarding-fe *::before,
+.care-onboarding-fe *::after {
+  box-sizing: border-box;
+}
+
+.care-onboarding-fe button:not(:disabled) { cursor: pointer; }
+.care-onboarding-fe input,
+.care-onboarding-fe button,
+.care-onboarding-fe textarea { font-family: inherit; }
+.care-onboarding-fe [data-slot="form-label"] { font-size: 14px; font-weight: 500; }
+.care-onboarding-fe [role="progressbar"] { height: 8px; }
+.care-onboarding-fe h1[tabindex="-1"]:focus { outline: none; }

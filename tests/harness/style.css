@@ -1,0 +1,12 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Figtree, sans-serif; background: #f9fafb; color: #453c52; }
+h1, h2, p, ol { margin: 0; }
+ol { padding: 0; list-style: none; }
+button, input, textarea { font: inherit; }
+button { border: 0 solid; }
+.host-sidebar { position: fixed; width: 220px; inset: 0 auto 0 0; padding: 24px; background: #f3f4f6; }
+.host-main { margin: 8px 8px 8px 228px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; min-height: calc(100vh - 16px); }
+@media (max-width: 767px) {
+  .host-sidebar { display: none; }
+  .host-main { margin: 0; padding: 12px; border: 0; }
+}
