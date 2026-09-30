@@ -5,7 +5,13 @@ const Onboarding = lazy(() => import("./Onboarding"));
 
 export default {
   plugin: "care_onboarding_fe",
+  onboarding: { path: "/onboarding" },
   routes: {
+    "/onboarding": () => (
+      <Suspense fallback={<p role="status">Opening facility setup...</p>}>
+        <Onboarding />
+      </Suspense>
+    ),
     "/admin/onboarding": () => (
       <Suspense fallback={<p role="status">Opening facility setup...</p>}>
         <Onboarding />

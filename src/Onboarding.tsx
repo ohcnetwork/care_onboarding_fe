@@ -46,7 +46,10 @@ function Done() {
 const SCREENS = {
   states: StatesStep, district: DistrictStep, facility: FacilityStep,
   departments: DepartmentsStep, users: UsersStep, invoice: InvoiceStep,
-  "patient-id": PatientIdStep, content: ContentStep, done: Done,
+  "patient-id": PatientIdStep,
+  questionnaires: () => <ContentStep kind="questionnaires" />,
+  templates: () => <ContentStep kind="templates" />,
+  done: Done,
 };
 
 function Wizard() {

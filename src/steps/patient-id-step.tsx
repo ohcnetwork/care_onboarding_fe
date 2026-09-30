@@ -16,8 +16,12 @@ export function PatientIdStep() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
   const [finished, setFinished] = useState("");
+  const [touched, setTouched] = useState(false);
+  const initialsError = initials.length < 2 ? "Enter at least 2 letters or digits." : undefined;
 
   const save = async () => {
+    setTouched(true);
+    if (initialsError) return;
     setBusy(true);
     setProblem("");
     try {
@@ -30,7 +34,7 @@ export function PatientIdStep() {
           display: "Patient ID",
           default_value: patientIdExpression(initials),
         });
-        setFinished("Saved.");
+        setFinished(`New patients will receive numbers starting with ${previewPatientId(initials, 0)}.`);
       } else {
         setFinished("A patient ID format already exists on this instance, so nothing was changed.");
       }
@@ -50,7 +54,7 @@ export function PatientIdStep() {
       />
       <ScreenBody disabled={busy}>
         <div className="flex max-w-[480px] flex-col gap-5">
-          <Field label="Prefix" htmlFor="pinitials" required hint="Usually the facility initials.">
+          <Field label="Prefix" htmlFor="pinitials" required hint="Usually the facility initials." error={touched ? initialsError : undefined}>
             <Input
               id="pinitials"
               value={initials}
@@ -69,12 +73,11 @@ export function PatientIdStep() {
             </div>
           </div>
           {problem ? <Alert variant="danger">{problem}</Alert> : null}
-          {finished ? <Alert>{finished}</Alert> : null}
+          {finished ? <Alert variant="success"><p className="font-semibold">Patient numbering is ready</p><p>{finished}</p></Alert> : null}
         </div>
       </ScreenBody>
       <StepFoot
         primary={finished ? "Continue" : "Save"}
-        primaryDisabled={!finished && initials.length < 2}
         onPrimary={finished ? () => complete("patient-id", { initials }) : () => void save()}
         busy={busy}
         onSkip={finished ? undefined : () => skip("patient-id")}

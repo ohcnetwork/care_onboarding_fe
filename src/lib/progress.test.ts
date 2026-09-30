@@ -18,3 +18,22 @@ test("refuses invalid, incompatible and incomplete checkpoints", () => {
 test("API instances have different progress records", () => {
   assert.notEqual(progressKey("https://one.local"), progressKey("https://two.local"));
 });
+
+test("migrates an unfinished combined content step without losing clinic progress", () => {
+  const old = { ...emptyProgress(), version: 2, step: "content", facilityId: "clinic", done: { facility: true } };
+  const migrated = parseProgress(JSON.stringify(old));
+  assert.equal(migrated.version, 3);
+  assert.equal(migrated.step, "questionnaires");
+  assert.equal(migrated.facilityId, "clinic");
+  assert.deepEqual(migrated.done, { facility: true });
+  assert.deepEqual(parseProgress(JSON.stringify(migrated)), migrated);
+});
+
+test("completed legacy imports mark both new content steps complete", () => {
+  const migrated = parseProgress(JSON.stringify({
+    ...emptyProgress(), version: 2, step: "done", facilityId: "clinic", done: { content: true },
+  }));
+  assert.equal(migrated.step, "done");
+  assert.deepEqual(migrated.done, { questionnaires: true, templates: true });
+  assert.equal("content" in migrated.done, false);
+});

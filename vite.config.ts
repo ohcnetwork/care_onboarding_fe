@@ -21,6 +21,7 @@ function scopeStyles(): PostcssPlugin {
 }
 
 export default defineConfig({
+  base: process.env.ONBOARDING_BASE_PATH ?? "/",
   plugins: [
     federation({
       name: "care_onboarding_fe",

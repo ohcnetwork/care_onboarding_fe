@@ -16,8 +16,12 @@ export function InvoiceStep() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
   const [finished, setFinished] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const initialsError = initials.length < 2 ? "Enter at least 2 letters or digits." : undefined;
 
   const save = async () => {
+    setTouched(true);
+    if (initialsError) return;
     setBusy(true);
     setProblem("");
     try {
@@ -43,6 +47,7 @@ export function InvoiceStep() {
             label="Facility initials"
             htmlFor="initials"
             required
+            error={touched ? initialsError : undefined}
             hint={`Taken from "${progress.facilityName}". Letters and digits only.`}
           >
             <Input
@@ -63,12 +68,11 @@ export function InvoiceStep() {
             </div>
           </div>
           {problem ? <Alert variant="danger">{problem}</Alert> : null}
-          {finished ? <Alert>Saved.</Alert> : null}
+          {finished ? <Alert variant="success"><p className="font-semibold">Invoice numbering saved</p><p>New invoices will use {previewInvoice(initials, 0)} and continue automatically.</p></Alert> : null}
         </div>
       </ScreenBody>
       <StepFoot
         primary={finished ? "Continue" : "Save"}
-        primaryDisabled={!finished && initials.length < 2}
         onPrimary={finished ? () => complete("invoice", { initials }) : () => void save()}
         busy={busy}
         onSkip={finished ? undefined : () => skip("invoice")}

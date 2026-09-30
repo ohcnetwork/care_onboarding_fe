@@ -33,7 +33,8 @@ export function apiBase(): string {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, public detail: string, public method: string, public path: string) {
+  constructor(public status: number, public detail: string, public method: string, public path: string,
+    public fieldErrors: Record<string, string> = {}) {
     super(
       status === 401 ? "Your session has expired. Sign in to CARE again, then return here to continue."
         : status === 403 ? "Your account does not have permission to complete this action."
@@ -41,6 +42,28 @@ export class ApiError extends Error {
         : "CARE could not save this item. Please try again. If this continues, contact your administrator.",
     );
   }
+}
+
+function validationFields(body: unknown): Record<string, string> {
+  const fields: Record<string, string> = {};
+  if (!body || typeof body !== "object") return fields;
+  const data = body as Record<string, unknown>;
+  const errors = Array.isArray(body) ? body : data.errors;
+  if (Array.isArray(errors)) {
+    for (const item of errors) {
+      if (!item || typeof item !== "object") continue;
+      const error = item as Record<string, unknown>;
+      const field = Array.isArray(error.loc) ? error.loc.find((key) => typeof key === "string" && key !== "body") : undefined;
+      if (typeof field === "string" && typeof error.msg === "string") fields[field] = error.msg;
+    }
+  } else {
+    for (const [key, value] of Object.entries(data)) {
+      if (["detail", "non_field_errors"].includes(key)) continue;
+      if (typeof value === "string") fields[key] = value;
+      else if (Array.isArray(value) && value.every((item) => typeof item === "string")) fields[key] = value.join(" ");
+    }
+  }
+  return fields;
 }
 
 function describe(body: unknown): string {
@@ -93,7 +116,8 @@ export async function request<T>(
   } catch {
     throw new ApiError(signal.aborted ? 0 : response.ok ? 502 : response.status, "CARE returned an unreadable or interrupted response", method, path);
   }
-  if (!response.ok) throw new ApiError(response.status, describe(data), method, path);
+  if (!response.ok) throw new ApiError(response.status, describe(data), method, path,
+    response.status === 400 || response.status === 422 ? validationFields(data) : {});
   return data as T;
 }
 

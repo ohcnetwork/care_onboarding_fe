@@ -1,4 +1,4 @@
-import { api, ApiError, listAll } from "@/lib/api";
+import { api, listAll } from "@/lib/api";
 import type { Outcome, BatchProgress } from "@/lib/batch";
 import { runBatch } from "@/lib/batch";
 
@@ -12,6 +12,7 @@ export type QuestionnaireFixture = {
   subject_type: string;
   styling_metadata?: Record<string, unknown>;
   questions: unknown[];
+  actions?: Record<string, unknown>[];
 };
 
 export type TemplateFixture = {
@@ -30,12 +31,12 @@ export type Questionnaire = { id: string; slug: string; title: string };
 export type Template = { id: string; slug: string; name: string };
 
 export async function findQuestionnaire(slug: string): Promise<Questionnaire | null> {
-  try {
-    return await api.get<Questionnaire>(`/questionnaire/${encodeURIComponent(slug)}/`);
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null;
-    throw error;
-  }
+  const questionnaires = await listAll<Questionnaire>(
+    `/questionnaire/?slug=${encodeURIComponent(slug)}&auth_context=instance`,
+  );
+  const matches = questionnaires.filter((q) => q.slug === slug);
+  if (matches.length > 1) throw new Error("More than one standard questionnaire has the same name. Ask your administrator to review it in CARE.");
+  return matches[0] ?? null;
 }
 
 export async function createQuestionnaire(
@@ -46,6 +47,7 @@ export async function createQuestionnaire(
   const created = await api.post<Questionnaire>("/questionnaire/", {
     ...body,
     auth_context: "instance",
+    actions: fixture.actions ?? [],
     organizations,
   });
   return created;
@@ -54,7 +56,7 @@ export async function createQuestionnaire(
 export async function ensureQuestionnaire(fixture: QuestionnaireFixture, organizations: string[]): Promise<Outcome> {
   const found = await findQuestionnaire(fixture.slug);
   const questionnaire = found ?? await createQuestionnaire(fixture, organizations);
-  const path = `/questionnaire/${encodeURIComponent(questionnaire.slug)}`;
+  const path = `/questionnaire/${encodeURIComponent(questionnaire.id)}`;
   const existing = await listAll<{ id: string }>(`${path}/get_organizations/`);
   const linked = new Set(existing.map((org) => org.id));
   const missing = organizations.filter((id) => !linked.has(id));
@@ -72,30 +74,32 @@ export function createTemplate(fixture: TemplateFixture, facilityId: string): Pr
   return api.post<Template>("/template/", { ...fixture, options: fixture.options ?? {}, facility: facilityId });
 }
 
-export async function loadStandardContent(
-  facilityId: string,
+export async function loadQuestionnaires(
   organizations: string[],
-  onProgress: (title: string, progress: BatchProgress) => void,
-): Promise<boolean> {
-  if (!facilityId || organizations.length === 0) throw new Error("Clinic setup is missing required information. Please contact your administrator.");
-  const [{ default: questionnaires }, { default: templates }] = await Promise.all([
-    import("../../data_source/questionnaire_fixtures.json"),
-    import("../../data_source/template_fixtures.json"),
-  ]);
-  const report = await runBatch(
+  onProgress: (progress: BatchProgress) => void,
+): Promise<BatchProgress> {
+  if (organizations.length === 0) throw new Error("Clinic setup is missing required information. Please contact your administrator.");
+  const { default: questionnaires } = await import("../../data_source/questionnaire_fixtures.json");
+  return runBatch(
     questionnaires,
     (q) => q.title,
     (q) => ensureQuestionnaire(q, organizations),
-    (p) => onProgress("Standard forms", p),
+    onProgress,
     2,
   );
-  if (report.failed) return false;
+}
+
+export async function loadTemplates(
+  facilityId: string,
+  onProgress: (progress: BatchProgress) => void,
+): Promise<BatchProgress> {
+  if (!facilityId) throw new Error("Clinic setup is missing required information. Please contact your administrator.");
+  const { default: templates } = await import("../../data_source/template_fixtures.json");
   const existing = await listTemplates(facilityId);
   const present = new Set(existing.map((t) => t.slug.replace(/^(f-[0-9a-f-]{36}-|i-)/, "")));
-  const templateReport = await runBatch(templates, (t) => t.name, async (template) => {
+  return runBatch(templates, (t) => t.name, async (template) => {
     if (present.has(template.slug_value)) return "skipped";
     await createTemplate(template, facilityId);
     return "created";
-  }, (p) => onProgress("Report template", p), 1);
-  return templateReport.failed === 0;
+  }, onProgress, 1);
 }

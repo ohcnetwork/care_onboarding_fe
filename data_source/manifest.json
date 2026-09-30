@@ -6,6 +6,14 @@
     "care": "c7b5d597fc406bc616ab87b06a6054d7f6d192f6",
     "care_fe": "2546061ece7f2f8a10e6ff669ad3bceed2fb830f"
   },
+  "desktop_api_verification": {
+    "date": "2026-09-30",
+    "backend_image": "sha256:1c587db51b4a121a96a18d3c1ccbbcb66ee8f2303c3f4c29e9732771aab07ac5",
+    "questionnaire_lookup": "Instance-filtered slug list; UUID for detail and organization sharing",
+    "questionnaire_actions": "Send an explicit empty array when the fixture has no actions",
+    "payload_validation": "All eight questionnaires and the report template accepted by the installed backend in rolled-back transactions",
+    "live_import": "Verified through the federated plugin in CARE: eight questionnaires, required staff/district sharing, one report template, and zero duplicate writes on retry"
+  },
   "included": {
     "states": 36,
     "districts": 726,

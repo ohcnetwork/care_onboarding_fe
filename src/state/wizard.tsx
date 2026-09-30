@@ -12,7 +12,8 @@ export const STEPS: { id: StepId; label: string; optional: boolean }[] = [
   { id: "users", label: "Staff", optional: true },
   { id: "invoice", label: "Invoice numbers", optional: true },
   { id: "patient-id", label: "Patient numbers", optional: true },
-  { id: "content", label: "Standard forms", optional: false },
+  { id: "questionnaires", label: "Questionnaires", optional: false },
+  { id: "templates", label: "Report templates", optional: false },
 ];
 
 export function nextStep(step: StepId): StepId {

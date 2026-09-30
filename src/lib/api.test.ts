@@ -42,8 +42,24 @@ test("separates plain language errors from technical validation details", async 
     assert.ok(error instanceof ApiError);
     assert.match(error.message, /CARE could not save/);
     assert.equal(error.detail, "body.code: Invalid code");
+    assert.deepEqual(error.fieldErrors, { code: "Invalid code" });
     return true;
   });
+
+});
+
+test("exposes backend field validation messages without copying rejected inputs", async () => {
+  for (const body of [
+    { email: ["This email is already in use."] },
+    [{ loc: ["email"], msg: "This email is already in use.", input: "private@example.test" }],
+  ]) {
+    globalThis.fetch = async () => Response.json(body, { status: 400 });
+    await assert.rejects(request("POST", "/users/", {}), (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      assert.deepEqual(error.fieldErrors, { email: "This email is already in use." });
+      return true;
+    });
+  }
 });
 
 test("pagination reads all results and rejects truncated responses", async () => {

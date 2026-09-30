@@ -19,13 +19,6 @@ export function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function normalisePhone(raw: string): string {
-  const digits = raw.replace(/[^\d+]/g, "");
-  if (digits.startsWith("+")) return digits;
-  if (digits.length === 10) return `+91${digits}`;
-  return digits ? `+${digits}` : "";
-}
-
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }

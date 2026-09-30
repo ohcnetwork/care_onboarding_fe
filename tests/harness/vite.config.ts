@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [
     federation({
       name: "onboarding_test_host",
-      remotes: { care_onboarding_fe: "http://127.0.0.1:4178/assets/remoteEntry.js" },
+      remotes: { care_onboarding_fe: process.env.ONBOARDING_REMOTE_URL ?? "http://127.0.0.1:4178/assets/remoteEntry.js" },
       shared: ["react", "react-dom"],
     }),
     react(),

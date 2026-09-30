@@ -27,6 +27,7 @@ function SelectTrigger({
         "border border-gray-300 bg-white px-3 py-2 text-left text-sm text-ink shadow-xs outline-none transition-colors",
         "hover:border-faint focus-visible:border-brand data-[state=open]:border-brand",
         "data-[placeholder]:text-faint disabled:cursor-not-allowed disabled:bg-background disabled:text-faint",
+        "aria-invalid:border-red-500! aria-invalid:ring-1 aria-invalid:ring-red-500",
         "*:data-[slot=select-value]:truncate",
         className,
       )}

@@ -20,10 +20,13 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { runBatch, type BatchProgress } from "@/lib/batch";
-import { errorText, normalisePhone } from "@/lib/format";
+import { ApiError } from "@/lib/api";
+import { errorText } from "@/lib/format";
+import { phoneToInternational, validPhone, type PhoneNumber } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { useWizard } from "@/state/wizard";
 
@@ -33,7 +36,7 @@ type Row = {
   last_name: string;
   username: string;
   email: string;
-  phone: string;
+  phone: PhoneNumber;
   gender: Gender | "";
   role: string;
   departments: string[];
@@ -51,25 +54,27 @@ const blankRow = (): Row => ({
   last_name: "",
   username: "",
   email: "",
-  phone: "",
+  phone: { country: "IN", number: "" },
   gender: "",
   role: "",
   departments: [],
   facilityAdmin: false,
 });
 
-function rowErrors(r: Row, all: Row[]): string[] {
-  const errors: string[] = [];
-  if (!r.first_name.trim()) errors.push("first name");
-  if (!r.last_name.trim()) errors.push("last name");
-  if (!USERNAME.test(r.username.trim())) errors.push("username (letters, digits, - or _, at least 3)");
-  else if (all.some((o) => o !== r && sameName(o.username, r.username))) errors.push("username is repeated");
-  if (!EMAIL.test(r.email.trim())) errors.push("email");
-  else if (all.some((o) => o !== r && sameName(o.email, r.email))) errors.push("email is repeated");
-  if (!/^\+?\d{10,14}$/.test(normalisePhone(r.phone))) errors.push("phone");
-  else if (all.some((o) => o !== r && normalisePhone(o.phone) === normalisePhone(r.phone))) errors.push("phone is repeated");
-  if (!r.gender) errors.push("gender");
-  if (!r.role) errors.push("role");
+type RowErrors = Partial<Record<keyof Row, string>>;
+
+function rowErrors(r: Row, all: Row[]): RowErrors {
+  const errors: RowErrors = {};
+  if (!r.first_name.trim()) errors.first_name = "Enter a first name.";
+  if (!r.last_name.trim()) errors.last_name = "Enter a last name.";
+  if (!USERNAME.test(r.username.trim())) errors.username = "Use at least 3 letters, digits, hyphens or underscores.";
+  else if (all.some((o) => o !== r && sameName(o.username, r.username))) errors.username = "Each staff member needs a different username.";
+  if (!EMAIL.test(r.email.trim())) errors.email = "Enter a valid email address.";
+  else if (all.some((o) => o !== r && sameName(o.email, r.email))) errors.email = "This email is already entered for another staff member.";
+  if (!validPhone(r.phone)) errors.phone = "Enter exactly 10 digits for the phone number.";
+  else if (all.some((o) => o !== r && validPhone(o.phone) && phoneToInternational(o.phone) === phoneToInternational(r.phone))) errors.phone = "This phone number is already entered for another staff member.";
+  if (!r.gender) errors.gender = "Choose a gender.";
+  if (!r.role) errors.role = "Choose a staff role.";
   return errors;
 }
 
@@ -91,6 +96,8 @@ export function UsersStep() {
   const [batch, setBatch] = useState<BatchProgress | null>(null);
   const [problem, setProblem] = useState("");
   const [finished, setFinished] = useState(false);
+  const [serverErrors, setServerErrors] = useState<Record<number, RowErrors>>({});
+  const [passwordError, setPasswordError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -111,12 +118,17 @@ export function UsersStep() {
   }, []);
 
   const facilityAdminRole = useMemo(() => roles.find((r) => sameName(r.name, FACILITY_ADMIN)), [roles]);
+  const staffRoles = roles.filter((role) => ![FACILITY_ADMIN, "Administrator"].some((name) => sameName(role.name, name)));
   const pwProblem = passwordProblem(password);
   const allErrors = rows.map((r) => rowErrors(r, rows));
-  const valid = !pwProblem && allErrors.every((e) => e.length === 0);
+  const valid = !pwProblem && allErrors.every((e) => Object.keys(e).length === 0);
 
-  const patch = (key: number, p: Partial<Row>) =>
+  const patch = (key: number, p: Partial<Row>) => {
     setRows((list) => list.map((r) => (r.key === key ? { ...r, ...p } : r)));
+    setServerErrors((errors) => ({
+      ...errors, [key]: Object.fromEntries(Object.entries(errors[key] ?? {}).filter(([field]) => !(field in p))),
+    }));
+  };
 
   const toggleDept = (key: number, name: string) =>
     setRows((list) =>
@@ -132,6 +144,8 @@ export function UsersStep() {
     if (!valid) return;
     setBusy(true);
     setProblem("");
+    setServerErrors({});
+    setPasswordError("");
     try {
       const facilityId = progress.facilityId;
       const administration = (await listDepartments(facilityId)).find((org) => sameName(org.name, ADMINISTRATION));
@@ -143,24 +157,39 @@ export function UsersStep() {
         rows,
         (r) => r.username,
         async (r) => {
-          const role = roles.find((x) => x.id === r.role);
+          const role = staffRoles.find((x) => x.id === r.role);
           if (!role) throw new Error("role not found");
           const roleOrg = progress.roleOrganizations[role.name] ?? Object.entries(progress.roleOrganizations).find(([n]) => sameName(n, role.name))?.[1];
           if (!roleOrg) throw new Error("A required staff group is missing. Please contact your administrator.");
           let user = await findUser(r.username.trim());
           let outcome: "created" | "skipped" | "repaired" = "skipped";
           if (!user) {
-            user = await createUser({
+            try {
+              user = await createUser({
               username: r.username.trim(),
               first_name: r.first_name.trim(),
               last_name: r.last_name.trim(),
               email: r.email.trim(),
-              phone_number: normalisePhone(r.phone),
+              phone_number: phoneToInternational(r.phone),
               gender: r.gender as Gender,
               password,
               geo_organization: progress.districtId,
               role_orgs: [{ organization: roleOrg, role: role.id }],
-            });
+              });
+            } catch (error) {
+              if (error instanceof ApiError) {
+                const fields = error.fieldErrors;
+                const row: RowErrors = {};
+                for (const key of ["first_name", "last_name", "username", "email", "gender"] as const) {
+                  if (fields[key]) row[key] = fields[key];
+                }
+                if (fields.phone_number) row.phone = fields.phone_number;
+                if (fields.role_orgs) row.role = fields.role_orgs;
+                setServerErrors((errors) => ({ ...errors, [r.key]: row }));
+                if (fields.password) setPasswordError(fields.password);
+              }
+              throw error;
+            }
             outcome = "created";
           }
           for (const name of r.departments) {
@@ -200,7 +229,7 @@ export function UsersStep() {
             label="Starting password for all users"
             htmlFor="pw"
             required
-            error={touched ? pwProblem : undefined}
+            error={passwordError || (touched ? pwProblem : undefined)}
             hint="At least 8 characters, not only digits, and not too common."
           >
             <div className="flex gap-2">
@@ -210,7 +239,7 @@ export function UsersStep() {
                 value={password}
                 autoComplete="new-password"
                 disabled={finished}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
                 className="max-w-[320px] font-mono"
               />
               <Button type="button" onClick={() => setShowPassword((v) => !v)}>
@@ -222,7 +251,7 @@ export function UsersStep() {
           {rolesProblem ? <Alert variant="danger">{rolesProblem}</Alert> : null}
 
           {rows.map((r, i) => {
-            const errors = touched ? allErrors[i] : [];
+            const errors: RowErrors = { ...(touched ? allErrors[i] : {}), ...serverErrors[r.key] };
             return (
               <div key={r.key} className="rounded-xl border border-line bg-white p-4">
                 <div className="mb-3 flex items-center justify-between">
@@ -234,22 +263,22 @@ export function UsersStep() {
                   ) : null}
                 </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Field label="First name" required>
+                  <Field label="First name" required error={errors.first_name}>
                     <Input value={r.first_name} disabled={finished} onChange={(e) => patch(r.key, { first_name: e.target.value })} />
                   </Field>
-                  <Field label="Last name" required>
+                  <Field label="Last name" required error={errors.last_name}>
                     <Input value={r.last_name} disabled={finished} onChange={(e) => patch(r.key, { last_name: e.target.value })} />
                   </Field>
-                  <Field label="Username" required>
+                  <Field label="Username" required error={errors.username}>
                     <Input value={r.username} autoCapitalize="none" spellCheck={false} disabled={finished} onChange={(e) => patch(r.key, { username: e.target.value })} />
                   </Field>
-                  <Field label="Role" required>
+                  <Field label="Role" required error={errors.role}>
                     <Select value={r.role} disabled={finished} onValueChange={(v) => patch(r.key, { role: v })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
-                        {roles.map((role) => (
+                        {staffRoles.map((role) => (
                           <SelectItem key={role.id} value={role.id}>
                             {role.name}
                           </SelectItem>
@@ -257,13 +286,13 @@ export function UsersStep() {
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label="Email" required>
+                  <Field label="Email" required error={errors.email}>
                     <Input type="email" value={r.email} disabled={finished} onChange={(e) => patch(r.key, { email: e.target.value })} />
                   </Field>
-                  <Field label="Phone" required>
-                    <Input inputMode="tel" placeholder="+91 90000 00000" value={r.phone} disabled={finished} onChange={(e) => patch(r.key, { phone: e.target.value })} />
+                  <Field label="Phone" required error={errors.phone}>
+                    <PhoneInput value={r.phone} disabled={finished} onChange={(phone) => patch(r.key, { phone })} />
                   </Field>
-                  <Field label="Gender" required>
+                  <Field label="Gender" required error={errors.gender}>
                     <Select value={r.gender} disabled={finished} onValueChange={(v) => patch(r.key, { gender: v as Gender })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select" />
@@ -280,9 +309,9 @@ export function UsersStep() {
                   <div className="flex flex-col justify-end gap-1 pb-1">
                     <label className="flex cursor-pointer items-center gap-2 text-[13px]">
                       <Checkbox checked={r.facilityAdmin} disabled={finished || !facilityAdminRole} onCheckedChange={(v) => patch(r.key, { facilityAdmin: v === true })} />
-                      Allow this person to manage the clinic
+                      Add as Facility Admin in Administration
                     </label>
-                    <span className="pl-6 text-xs text-faint">Adds clinic administration access alongside their department role.</span>
+                    <span className="pl-6 text-xs text-faint">Adds this person to the Administration department with the Facility Admin role. Their selected staff role stays unchanged.</span>
                   </div>
                 </div>
                 <div className="mt-4">
@@ -314,9 +343,6 @@ export function UsersStep() {
                     <div className="text-[12.5px] text-muted-foreground">No departments were created in the previous step.</div>
                   )}
                 </div>
-                {errors.length ? (
-                  <div className="mt-3 text-[12.5px] text-danger-ink">Check: {errors.join(", ")}.</div>
-                ) : null}
               </div>
             );
           })}
@@ -329,12 +355,12 @@ export function UsersStep() {
 
           {batch ? <BatchPanel title="Staff accounts" progress={batch} running={busy} /> : null}
           {problem ? <Alert variant="danger">{problem}</Alert> : null}
-          {finished ? <Alert>Done. Share the starting password with each person privately.</Alert> : null}
+          {finished ? <Alert variant="success">Staff accounts are ready. Share the starting password with each person privately.</Alert> : null}
         </div>
       </ScreenBody>
       <StepFoot
         primary={finished ? "Continue" : "Add staff"}
-        primaryDisabled={!finished && (rows.length === 0 || roles.length === 0)}
+        primaryDisabled={!finished && (rows.length === 0 || staffRoles.length === 0)}
         onPrimary={finished ? () => complete("users") : () => void run()}
         busy={busy}
         onSkip={finished ? undefined : () => skip("users")}
