@@ -189,6 +189,83 @@ test("loads as a federated remote and completes simple onboarding without editin
   expect(errors).toEqual([]);
 });
 
+test("superuser landing redirects to setup using only authenticated existing APIs", async ({ page, context }) => {
+  const { writes } = await backend(context);
+  const paths: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/v1/")) paths.push(new URL(request.url()).pathname);
+  });
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/admin\/onboarding$/);
+  await expect(page.getByRole("heading", { name: "Let's prepare your clinic" })).toBeVisible();
+  expect(paths).toContain("/api/v1/facility/");
+  expect(paths).not.toContain("/api/v1/plug_config/setup_status/");
+  expect(writes).toEqual([]);
+  await page.reload();
+  await expect(page).toHaveURL(/\/admin\/onboarding$/);
+});
+
+test("existing private clinic keeps normal dashboard even with no assigned facilities", async ({ page, context }) => {
+  const { setFacility, writes } = await backend(context);
+  setFacility({ id: "private-clinic", name: "Private Clinic", is_public: false });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "CARE dashboard" })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  expect(writes).toEqual([]);
+});
+
+test("ordinary users keep their dashboard without a facility check", async ({ page, context }) => {
+  await backend(context, false);
+  const facilities: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/v1/facility/") facilities.push(request.url());
+  });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "CARE dashboard" })).toBeVisible();
+  expect(facilities).toEqual([]);
+});
+
+test("post-login opt-out leaves the dashboard and manual setup available", async ({ page, context }) => {
+  await backend(context);
+  await context.addInitScript(() => {
+    window.__CARE_PLUGIN_RUNTIME__ = { meta: { care_onboarding_fe: { config: { redirect_after_login: false } } } };
+  });
+  const calls: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/v1/")) calls.push(request.url());
+  });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "CARE dashboard" })).toBeVisible();
+  expect(calls).toEqual([]);
+  await page.goto("/admin/onboarding");
+  await expect(page.getByRole("heading", { name: "Let's prepare your clinic" })).toBeVisible();
+});
+
+test("failed dashboard check reports an error and retry can detect an existing clinic", async ({ page, context }) => {
+  const { setFacility } = await backend(context);
+  setFacility({ id: "clinic", name: "Existing Clinic" });
+  let failed = true;
+  await context.route("**/api/v1/facility/**", (route) =>
+    failed ? route.fulfill({ json: { detail: "Unavailable" }, status: 503 }) : route.fallback(),
+  );
+  await page.goto("/");
+  await expect(page.getByRole("alert")).toContainText("Could not check whether your clinic needs setup");
+  await expect(page).toHaveURL(/\/$/);
+  failed = false;
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "CARE dashboard" })).toBeVisible();
+});
+
+test("malformed facility response never triggers automatic setup", async ({ page, context }) => {
+  await backend(context);
+  await context.route("**/api/v1/facility/**", (route) =>
+    route.fulfill({ json: { count: 1, results: [] } }),
+  );
+  await page.goto("/");
+  await expect(page.getByRole("alert")).toContainText("unexpected clinic list");
+  await expect(page).toHaveURL(/\/$/);
+});
+
 test("blocks ordinary users and never writes", async ({ page, context }) => {
   const { writes } = await backend(context, false);
   await page.goto("/admin/onboarding");

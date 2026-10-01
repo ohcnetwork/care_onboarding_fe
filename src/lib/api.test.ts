@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
-import { apiBase, ApiError, listAll, request } from "./api";
+import { apiBase, ApiError, listAll, openRequestScope, request, requestScope } from "./api";
 
 const originalFetch = globalThis.fetch;
 beforeEach(() => {
@@ -8,6 +8,19 @@ beforeEach(() => {
   Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { getItem: () => "care-session-token" } });
 });
 afterEach(() => { globalThis.fetch = originalFetch; });
+
+test("leaving setup does not leave an aborted scope for later dashboard checks", () => {
+  const closeFirst = openRequestScope();
+  const first = requestScope();
+  const closeSecond = openRequestScope();
+  const second = requestScope();
+  assert.equal(first?.aborted, true);
+  closeFirst();
+  assert.equal(requestScope(), second);
+  closeSecond();
+  assert.equal(second?.aborted, true);
+  assert.equal(requestScope(), undefined);
+});
 
 test("uses CARE's origin, not the remote's URL, by default", async () => {
   globalThis.fetch = async (url, options) => {

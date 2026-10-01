@@ -1,11 +1,15 @@
 import { ClipboardList } from "lucide-react";
 import { lazy, Suspense } from "react";
 
+import DashboardOnboarding from "./DashboardOnboarding";
+
 const Onboarding = lazy(() => import("./Onboarding"));
 
 export default {
   plugin: "care_onboarding_fe",
-  onboarding: { path: "/onboarding" },
+  overrides: [
+    { component: "UserDashboard", replacement: DashboardOnboarding },
+  ],
   routes: {
     "/onboarding": () => (
       <Suspense fallback={<p role="status">Opening facility setup...</p>}>

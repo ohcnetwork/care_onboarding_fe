@@ -5,7 +5,10 @@ export function openRequestScope(): () => void {
   activeScope?.abort();
   const scope = new AbortController();
   activeScope = scope;
-  return () => scope.abort();
+  return () => {
+    scope.abort();
+    if (activeScope === scope) activeScope = undefined;
+  };
 }
 
 export function requestScope(): AbortSignal | undefined {
@@ -16,7 +19,7 @@ declare global {
   interface Window {
     CARE_API_URL?: string;
     __CARE_PLUGIN_RUNTIME__?: {
-      meta: Record<string, { config?: { api_url?: string; auto_onboarding?: boolean } }>;
+      meta: Record<string, { config?: { api_url?: string; redirect_after_login?: boolean } }>;
     };
   }
 }
@@ -88,10 +91,11 @@ export async function request<T>(
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
   body?: unknown,
+  requestSignal?: AbortSignal,
 ): Promise<T> {
   const token = localStorage.getItem("care_access_token");
   if (!token) throw new ApiError(401, "No CARE session", method, path);
-  const scope = requestScope();
+  const scope = requestSignal ?? requestScope();
   const signal = AbortSignal.any([AbortSignal.timeout(90_000), ...(scope ? [scope] : [])]);
   let response: Response;
   try {
