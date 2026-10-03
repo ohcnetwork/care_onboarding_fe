@@ -13,6 +13,18 @@ const districts = statesData.flatMap((s, i) =>
 const roles = ["Administrator", "Facility Admin", "Doctor", "Nurse", "Staff", "Pharmacist", "Volunteer"]
   .map((name, i) => ({ name, id: `role-${i}` }));
 
+async function fillStaffRow(page: import("@playwright/test").Page, index = 0) {
+  await page.getByLabel("First name").nth(index).fill(`Example ${index + 1}`);
+  await page.getByLabel("Last name").nth(index).fill("Doctor");
+  await page.getByLabel("Username").nth(index).fill(`example_doctor_${index + 1}`);
+  await page.getByRole("textbox", { name: "Email", exact: true }).nth(index).fill(`example${index + 1}@clinic.test`);
+  await page.getByRole("textbox", { name: "Phone", exact: true }).nth(index).fill(`900000000${index}`);
+  await page.getByRole("combobox", { name: "Role", exact: true }).nth(index).click();
+  await page.getByRole("option", { name: "Doctor", exact: true }).click();
+  await page.getByRole("combobox", { name: "Gender", exact: true }).nth(index).click();
+  await page.getByRole("option", { name: "Female", exact: true }).click();
+}
+
 async function backend(context: BrowserContext, superuser = true) {
   const writes: string[] = [];
   const phonePayloads: string[] = [];
@@ -273,6 +285,104 @@ test("blocks ordinary users and never writes", async ({ page, context }) => {
   expect(writes).toEqual([]);
 });
 
+test("stale setup resets only its checkpoint after confirmation and stays reset on reload", async ({ page, context }) => {
+  const { writes } = await backend(context);
+  const saved = {
+    ...emptyProgress(), step: "done", facilityId: "old-clinic", facilityName: "Old Clinic",
+    done: { facility: true }, users: ["old-user"], roleOrganizations: { Doctor: "old-role" },
+  };
+  await context.addInitScript((saved) => {
+    const key = `care_onboarding_fe:${location.origin}:progress`;
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(saved));
+    localStorage.setItem("care_onboarding_fe:https://other.example:progress", "other-checkpoint");
+    localStorage.setItem("unrelated-preference", "keep");
+  }, saved);
+  await page.goto("/admin/onboarding");
+  await expect(page.getByRole("heading", { name: "We couldn't find your clinic" })).toBeVisible();
+  const before = await page.evaluate(() => ({ ...localStorage }));
+  await page.getByRole("button", { name: "Start setup again", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Start clinic setup again?" })).toBeVisible();
+  await expect(page.getByText("No clinic records will be deleted, and you will stay signed in.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(await page.evaluate(() => ({ ...localStorage }))).toEqual(before);
+  await page.getByRole("button", { name: "Start setup again", exact: true }).click();
+  await page.getByRole("button", { name: "Yes, start again", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Let's prepare your clinic" })).toBeVisible();
+  const expected = {
+    ...before,
+    [`care_onboarding_fe:${new URL(page.url()).origin}:progress`]: JSON.stringify(emptyProgress()),
+  };
+  expect(await page.evaluate(() => ({ ...localStorage }))).toEqual(expected);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Let's prepare your clinic" })).toBeVisible();
+  expect(await page.evaluate(() => ({ ...localStorage }))).toEqual(expected);
+  expect(writes).toEqual([]);
+});
+
+for (const scenario of [
+  { name: "matching clinic", id: "clinic-1", heading: "Departments" },
+  { name: "different clinic", id: "other-clinic", heading: "This CARE instance already has a clinic" },
+]) {
+  test(`stale setup reset is unavailable with a ${scenario.name}`, async ({ page, context }) => {
+    const { setFacility, writes } = await backend(context);
+    setFacility({ id: scenario.id, name: "Existing Clinic" });
+    await resumeAt(context, "departments");
+    await page.goto("/admin/onboarding");
+    await expect(page.getByRole("heading", { name: scenario.heading, exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start setup again", exact: true })).toHaveCount(0);
+    expect(writes).toEqual([]);
+  });
+}
+
+for (const failure of ["connection", "401", "403", "503", "malformed", "ordinary user"]) {
+  test(`stale setup reset is unavailable after ${failure}`, async ({ page, context }) => {
+    const { writes } = await backend(context, failure !== "ordinary user");
+    await resumeAt(context, "departments");
+    if (failure !== "ordinary user") {
+      await context.route("**/api/v1/facility/**", (route) => {
+        if (failure === "connection") return route.abort();
+        if (failure === "malformed") return route.fulfill({ json: { count: 1, results: [] } });
+        return route.fulfill({ status: Number(failure), json: { detail: "Unavailable" } });
+      });
+    }
+    await page.goto("/admin/onboarding");
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start setup again", exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() =>
+      JSON.parse(localStorage.getItem(`care_onboarding_fe:${location.origin}:progress`)!).facilityId,
+    )).toBe("clinic-1");
+    expect(writes).toEqual([]);
+  });
+}
+
+test("stale setup rechecks CARE before restarting after reset", async ({ page, context }) => {
+  const { setFacility, writes } = await backend(context);
+  await resumeAt(context, "departments");
+  await page.goto("/admin/onboarding");
+  await page.getByRole("button", { name: "Start setup again", exact: true }).click();
+  setFacility({ id: "new-clinic", name: "Another Clinic" });
+  await page.getByRole("button", { name: "Yes, start again", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "This CARE instance already has a clinic" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Get started", exact: true })).toHaveCount(0);
+  expect(writes).toEqual([]);
+});
+
+test("stale setup storage failure blocks restart and preserves the checkpoint", async ({ page, context }) => {
+  const { writes } = await backend(context);
+  await resumeAt(context, "departments");
+  await page.goto("/admin/onboarding");
+  await page.getByRole("button", { name: "Start setup again", exact: true }).click();
+  const before = await page.evaluate(() => ({ ...localStorage }));
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => { throw new DOMException("Storage full", "QuotaExceededError"); };
+  });
+  await page.getByRole("button", { name: "Yes, start again", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("This browser cannot save setup progress");
+  await expect(page.getByRole("button", { name: "Get started", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => ({ ...localStorage }))).toEqual(before);
+  expect(writes).toEqual([]);
+});
+
 test("fits a phone viewport and prevents concurrent setup tabs", async ({ page, context }, testInfo) => {
   await backend(context);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -287,6 +397,30 @@ test("fits a phone viewport and prevents concurrent setup tabs", async ({ page, 
   await other.reload();
   await expect(other.getByRole("heading", { name: "Let's prepare your clinic" })).toBeVisible();
 });
+
+for (const volunteerName of ["Volunteer", "  vOlUnTeEr  "]) {
+  test(`staff role dropdown excludes ${JSON.stringify(volunteerName)} while allowing Doctor`, async ({ page, context }) => {
+    const { setFacility } = await backend(context);
+    setFacility({ id: "clinic-1", name: "Example Clinic" });
+    await context.route("**/api/v1/role/**", (route) => {
+      const results = roles.map((role) => role.name === "Volunteer" ? { ...role, name: volunteerName } : role);
+      return route.fulfill({ json: { count: results.length, results } });
+    });
+    await resumeAt(context, "users");
+    await page.goto("/admin/onboarding");
+    const role = page.getByRole("combobox", { name: "Role", exact: true });
+    await role.click();
+    await expect(page.getByRole("option", { name: /volunteer/i })).toHaveCount(0);
+    await expect(page.getByRole("option", { name: "Administrator", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("option", { name: "Facility Admin", exact: true })).toHaveCount(0);
+    await page.getByRole("option", { name: "Doctor", exact: true }).click();
+    await expect(role).toHaveText("Doctor");
+    const facilityAdmin = page.getByRole("checkbox", { name: "Add as Facility Admin in Administration" });
+    await facilityAdmin.check();
+    await expect(facilityAdmin).toBeChecked();
+    await expect(role).toHaveText("Doctor");
+  });
+}
 
 test("creates department links, staff access and numbering before loading standard forms", async ({ page, context }, testInfo) => {
   const { writes, phonePayloads, membershipPayloads, rejectNextUser, setFacility } = await backend(context);
@@ -324,6 +458,7 @@ test("creates department links, staff access and numbering before loading standa
   await page.getByRole("combobox", { name: "Role", exact: true }).click();
   await expect(page.getByRole("option", { name: "Facility Admin", exact: true })).toHaveCount(0);
   await expect(page.getByRole("option", { name: "Administrator", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: "Volunteer", exact: true })).toHaveCount(0);
   await page.getByRole("option", { name: "Doctor", exact: true }).click();
   await page.getByRole("textbox", { name: "Email", exact: true }).fill("example@clinic.test");
   await expect(page.getByRole("combobox", { name: "Country calling code" })).toHaveText("IN +91");
@@ -420,6 +555,56 @@ test("clinic phone defaults to India, sanitizes typing and paste, and rejects sh
   expect(phonePayloads).toEqual(["+919000000000"]);
 });
 
+test("clinic PIN code limits typing and paste to six digits and requires all six on submission", async ({ page, context }) => {
+  const { writes } = await backend(context);
+  await context.addInitScript((progress) => {
+    localStorage.setItem(`care_onboarding_fe:${location.origin}:progress`, JSON.stringify(progress));
+  }, {
+    ...emptyProgress(), step: "facility", done: { states: true, district: true },
+    stateId: "state-0", stateName: "State", districtId: "district-0-0", districtName: "District",
+  });
+  await page.goto("/admin/onboarding");
+  await page.getByRole("combobox", { name: "Facility type" }).click();
+  await page.getByRole("option", { name: "Private Hospital", exact: true }).click();
+  await page.getByLabel("Facility name").fill("PIN Test Clinic");
+  await page.getByLabel("Phone number").fill("9000000000");
+  await page.getByLabel("Address").fill("Example road");
+  const pin = page.getByRole("textbox", { name: "PIN code", exact: true });
+  await expect(pin).toHaveAttribute("maxlength", "6");
+  for (const value of ["", "01234"]) {
+    await pin.fill(value);
+    await page.getByRole("button", { name: "Create clinic" }).click();
+    await expect(pin).toHaveAttribute("aria-invalid", "true");
+    await expect(pin).toHaveAccessibleDescription("Enter the 6-digit PIN code.");
+    expect(writes).toEqual([]);
+  }
+  await pin.fill("");
+  await pin.pressSequentially("abc01xyz23456789");
+  await expect(pin).toHaveValue("012345");
+  await expect(pin).toHaveAttribute("aria-invalid", "false");
+  await pin.fill("");
+  await pin.evaluate((element) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text", "01abc 23-456789");
+    element.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }));
+  });
+  await expect(pin).toHaveValue("012345");
+  await pin.evaluate((element: HTMLInputElement) => {
+    element.setSelectionRange(2, 4);
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text", "9x8");
+    element.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }));
+  });
+  await expect(pin).toHaveValue("019845");
+  const created = page.waitForRequest((request) =>
+    new URL(request.url()).pathname === "/api/v1/facility/" && request.method() === "POST",
+  );
+  await page.getByRole("button", { name: "Create clinic" }).click();
+  expect((await created).postDataJSON().pincode).toBe(19845);
+  await expect(page.getByRole("heading", { name: "Departments", exact: true })).toBeVisible();
+  expect(writes.filter((path) => path === "/facility/")).toHaveLength(1);
+});
+
 test("duplicate staff identifiers show errors at each affected input without writes", async ({ page, context }) => {
   const { writes, setFacility } = await backend(context);
   setFacility({ id: "clinic-1", name: "Example Clinic" });
@@ -460,4 +645,101 @@ test("a failed questionnaire blocks continuation and retries only the missing im
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Report templates", exact: true })).toBeVisible();
   expect(writes.filter((path) => path === "/questionnaire/")).toHaveLength(9);
+});
+
+test("every staff row requires a department before any user or membership writes", async ({ page, context }) => {
+  const { writes, membershipPayloads, setFacility } = await backend(context);
+  setFacility({ id: "clinic-1", name: "Example Clinic" });
+  await resumeAt(context, "departments");
+  await page.goto("/admin/onboarding");
+  await page.getByRole("button", { name: "Laboratory", exact: true }).click();
+  await page.getByRole("button", { name: "Create departments" }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByLabel("Starting password for all users").fill("Starting-password-42");
+  await fillStaffRow(page);
+  await page.getByRole("button", { name: "Add another staff member" }).click();
+  await fillStaffRow(page, 1);
+  const groups = page.getByRole("group", { name: "Departments (choose at least one)" });
+  const startingPassword = page.getByLabel("Starting password for all users");
+  await expect(startingPassword).toHaveCount(1);
+  await expect(startingPassword).toBeVisible();
+  for (const beforePassword of [groups.last(), page.getByRole("button", { name: "Add another staff member" })]) {
+    expect(await beforePassword.evaluate((element) =>
+      !!(element.compareDocumentPosition(document.getElementById("pw")!) & Node.DOCUMENT_POSITION_FOLLOWING),
+    )).toBe(true);
+  }
+  expect(await page.getByRole("button", { name: "Add staff", exact: true }).evaluate((element) =>
+    !!(element.compareDocumentPosition(document.getElementById("pw")!) & Node.DOCUMENT_POSITION_PRECEDING),
+  )).toBe(true);
+  await groups.nth(0).getByRole("button", { name: "Laboratory", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Add as Facility Admin in Administration" }).nth(1).check();
+  await page.getByRole("button", { name: "Add staff", exact: true }).click();
+  await expect(groups.nth(0)).toHaveAttribute("aria-invalid", "false");
+  await expect(groups.nth(1)).toHaveAttribute("aria-invalid", "true");
+  await expect(groups.nth(1)).toHaveAccessibleDescription("Choose at least one department for this staff member.");
+  await expect(groups.nth(1).getByRole("alert")).toBeVisible();
+  expect(writes.filter((path) => path === "/users/")).toEqual([]);
+  expect(membershipPayloads).toEqual([]);
+  const department = groups.nth(1).getByRole("button", { name: /Laboratory/ });
+  await department.click();
+  await expect(department).toHaveAttribute("aria-pressed", "true");
+  await expect(groups.nth(1).getByRole("alert")).toHaveCount(0);
+  await department.click();
+  await expect(department).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "Add staff", exact: true }).click();
+  await expect(groups.nth(1).getByRole("alert")).toBeVisible();
+  expect(writes.filter((path) => path === "/users/")).toEqual([]);
+  expect(membershipPayloads).toEqual([]);
+  await department.click();
+  await page.getByRole("button", { name: "Add staff", exact: true }).click();
+  await expect(page.getByText("Staff accounts are ready.", { exact: false })).toBeVisible();
+  expect(writes.filter((path) => path === "/users/")).toHaveLength(2);
+  expect(membershipPayloads.filter((payload) => payload.path.includes("/dept-1/"))).toHaveLength(2);
+  expect(membershipPayloads.filter((payload) => payload.path.includes("/administration/"))).toHaveLength(1);
+});
+
+test("staff can return to skipped departments without losing drafts or saving them to browser storage", async ({ page, context }) => {
+  const { writes, membershipPayloads, setFacility } = await backend(context);
+  setFacility({ id: "clinic-1", name: "Example Clinic" });
+  await resumeAt(context, "departments");
+  await page.goto("/admin/onboarding");
+  await page.getByRole("button", { name: "Skip for now" }).click();
+  await page.getByLabel("Starting password for all users").fill("Starting-password-42");
+  await fillStaffRow(page);
+  await page.getByRole("checkbox", { name: "Add as Facility Admin in Administration" }).check();
+  await page.getByRole("button", { name: "Add staff", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText("Choose at least one department for this staff member.");
+  expect(writes).toEqual([]);
+  expect(membershipPayloads).toEqual([]);
+  await page.getByRole("button", { name: "Go back to departments" }).click();
+  await expect(page.getByRole("heading", { name: "Departments", exact: true })).toBeVisible();
+  const saved = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
+  expect(saved).not.toContain("Starting-password-42");
+  expect(saved).not.toContain("example1@clinic.test");
+  expect(saved).not.toContain("example_doctor_1");
+  await page.getByRole("button", { name: "Laboratory", exact: true }).click();
+  await page.getByRole("button", { name: "Create departments" }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByLabel("Starting password for all users")).toHaveValue("Starting-password-42");
+  await expect(page.getByLabel("Username")).toHaveValue("example_doctor_1");
+  await expect(page.getByRole("checkbox", { name: "Add as Facility Admin in Administration" })).toBeChecked();
+  await expect(page.getByRole("button", { name: "Go back to departments" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Laboratory", exact: true }).click();
+  await page.getByRole("button", { name: "Add staff", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Invoice numbers", exact: true })).toBeVisible();
+  expect(writes.filter((path) => path === "/users/")).toHaveLength(1);
+  expect(membershipPayloads).toHaveLength(2);
+});
+
+test("staff remains optional when no departments were created", async ({ page, context }) => {
+  const { writes, setFacility } = await backend(context);
+  setFacility({ id: "clinic-1", name: "Example Clinic" });
+  await resumeAt(context, "users");
+  await page.goto("/admin/onboarding");
+  await page.getByRole("button", { name: "Add staff", exact: true }).click();
+  await expect(page.getByText("Choose at least one department for this staff member.")).toBeVisible();
+  await page.getByRole("button", { name: "Skip for now" }).click();
+  await expect(page.getByRole("heading", { name: "Invoice numbers", exact: true })).toBeVisible();
+  expect(writes).toEqual([]);
 });

@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 
 import { ROLE_ORGANIZATIONS, sameName } from "@/care/organizations";
 import { ADMINISTRATION, listDepartments } from "@/care/departments";
@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { runBatch, type BatchProgress } from "@/lib/batch";
 import { ApiError } from "@/lib/api";
@@ -63,6 +62,8 @@ const blankRow = (): Row => ({
 
 type RowErrors = Partial<Record<keyof Row, string>>;
 
+export type StaffDraft = { rows: Row[]; password: string; touched: boolean };
+
 function rowErrors(r: Row, all: Row[]): RowErrors {
   const errors: RowErrors = {};
   if (!r.first_name.trim()) errors.first_name = "Enter a first name.";
@@ -75,6 +76,7 @@ function rowErrors(r: Row, all: Row[]): RowErrors {
   else if (all.some((o) => o !== r && validPhone(o.phone) && phoneToInternational(o.phone) === phoneToInternational(r.phone))) errors.phone = "This phone number is already entered for another staff member.";
   if (!r.gender) errors.gender = "Choose a gender.";
   if (!r.role) errors.role = "Choose a staff role.";
+  if (!r.departments.length) errors.departments = "Choose at least one department for this staff member.";
   return errors;
 }
 
@@ -84,20 +86,25 @@ function passwordProblem(pw: string): string {
   return "";
 }
 
-export function UsersStep() {
-  const { progress, complete, skip, update } = useWizard();
+export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
+  const { progress, complete, skip, update, goTo } = useWizard();
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesProblem, setRolesProblem] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(draft.current?.password ?? "");
   const [showPassword, setShowPassword] = useState(false);
-  const [rows, setRows] = useState<Row[]>([blankRow()]);
-  const [touched, setTouched] = useState(false);
+  const [rows, setRows] = useState<Row[]>(() => draft.current?.rows ?? [blankRow()]);
+  const [touched, setTouched] = useState(draft.current?.touched ?? false);
   const [busy, setBusy] = useState(false);
   const [batch, setBatch] = useState<BatchProgress | null>(null);
   const [problem, setProblem] = useState("");
   const [finished, setFinished] = useState(false);
   const [serverErrors, setServerErrors] = useState<Record<number, RowErrors>>({});
   const [passwordError, setPasswordError] = useState("");
+
+  const backToDepartments = () => {
+    draft.current = { rows, password, touched };
+    goTo("departments");
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -118,7 +125,7 @@ export function UsersStep() {
   }, []);
 
   const facilityAdminRole = useMemo(() => roles.find((r) => sameName(r.name, FACILITY_ADMIN)), [roles]);
-  const staffRoles = roles.filter((role) => ![FACILITY_ADMIN, "Administrator"].some((name) => sameName(role.name, name)));
+  const staffRoles = roles.filter((role) => ![FACILITY_ADMIN, "Administrator", "Volunteer"].some((name) => sameName(role.name, name)));
   const pwProblem = passwordProblem(password);
   const allErrors = rows.map((r) => rowErrors(r, rows));
   const valid = !pwProblem && allErrors.every((e) => Object.keys(e).length === 0);
@@ -209,7 +216,10 @@ export function UsersStep() {
         2,
       );
       update({ users: [...new Set([...progress.users, ...created])] });
-      if (report.failed === 0) setFinished(true);
+      if (report.failed === 0) {
+        draft.current = null;
+        setFinished(true);
+      }
     } catch (e) {
       setProblem(errorText(e));
     } finally {
@@ -225,30 +235,16 @@ export function UsersStep() {
       />
       <ScreenBody disabled={busy}>
         <div className="flex max-w-[760px] flex-col gap-5">
-          <Field
-            label="Starting password for all users"
-            htmlFor="pw"
-            required
-            error={passwordError || (touched ? pwProblem : undefined)}
-            hint="At least 8 characters, not only digits, and not too common."
-          >
-            <div className="flex gap-2">
-              <Input
-                id="pw"
-                type={showPassword ? "text" : "password"}
-                value={password}
-                autoComplete="new-password"
-                disabled={finished}
-                onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
-                className="max-w-[320px] font-mono"
-              />
-              <Button type="button" onClick={() => setShowPassword((v) => !v)}>
-                {showPassword ? "Hide" : "Show"}
-              </Button>
-            </div>
-          </Field>
-
           {rolesProblem ? <Alert variant="danger">{rolesProblem}</Alert> : null}
+          {!progress.departments.length ? (
+            <Alert>
+              <p>Add a department before adding staff, or skip staff accounts for now.</p>
+              <Button type="button" className="mt-3" onClick={backToDepartments}>
+                Go back to departments
+              </Button>
+              <p className="mt-2 text-xs">Your staff details will stay here while you add departments. Keep this page open.</p>
+            </Alert>
+          ) : null}
 
           {rows.map((r, i) => {
             const errors: RowErrors = { ...(touched ? allErrors[i] : {}), ...serverErrors[r.key] };
@@ -314,10 +310,15 @@ export function UsersStep() {
                     <span className="pl-6 text-xs text-faint">Adds this person to the Administration department with the Facility Admin role. Their selected staff role stays unchanged.</span>
                   </div>
                 </div>
-                <div className="mt-4">
-                  <Label className="mb-2 block">
-                    Departments <span className="font-normal text-faint">(pick any number)</span>
-                  </Label>
+                <fieldset
+                  className="mt-4"
+                  aria-invalid={!!errors.departments}
+                  aria-describedby={errors.departments ? `departments-${r.key}-error` : undefined}
+                >
+                  <legend className="mb-2 text-sm font-medium">
+                    Departments <span aria-hidden="true" className="text-danger-ink">*</span>{" "}
+                    <span className="font-normal text-faint">(choose at least one)</span>
+                  </legend>
                   {progress.departments.length ? (
                     <div className="flex flex-wrap gap-2">
                       {progress.departments.map((d) => {
@@ -327,10 +328,13 @@ export function UsersStep() {
                             key={d.name}
                             type="button"
                             disabled={finished}
+                            aria-pressed={on}
+                            aria-describedby={errors.departments ? `departments-${r.key}-error` : undefined}
                             onClick={() => toggleDept(r.key, d.name)}
                             className={cn(
                               "rounded-full border px-3 py-1.5 text-[12.5px] font-medium",
                               on ? "border-brand bg-brand-bg text-brand-ink" : "border-line bg-white text-muted-foreground hover:border-brand",
+                              errors.departments && "border-red-500",
                             )}
                           >
                             {on ? "✓ " : ""}
@@ -342,7 +346,12 @@ export function UsersStep() {
                   ) : (
                     <div className="text-[12.5px] text-muted-foreground">No departments were created in the previous step.</div>
                   )}
-                </div>
+                  {errors.departments ? (
+                    <div id={`departments-${r.key}-error`} role="alert" className="mt-2 text-sm text-red-500">
+                      {errors.departments}
+                    </div>
+                  ) : null}
+                </fieldset>
               </div>
             );
           })}
@@ -352,6 +361,29 @@ export function UsersStep() {
               <Plus className="size-4" /> Add another staff member
             </Button>
           ) : null}
+
+          <Field
+            label="Starting password for all users"
+            htmlFor="pw"
+            required
+            error={passwordError || (touched ? pwProblem : undefined)}
+            hint="At least 8 characters, not only digits, and not too common."
+          >
+            <div className="flex gap-2">
+              <Input
+                id="pw"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                autoComplete="new-password"
+                disabled={finished}
+                onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
+                className="max-w-[320px] font-mono"
+              />
+              <Button type="button" onClick={() => setShowPassword((v) => !v)}>
+                {showPassword ? "Hide" : "Show"}
+              </Button>
+            </div>
+          </Field>
 
           {batch ? <BatchPanel title="Staff accounts" progress={batch} running={busy} /> : null}
           {problem ? <Alert variant="danger">{problem}</Alert> : null}
@@ -363,7 +395,7 @@ export function UsersStep() {
         primaryDisabled={!finished && (rows.length === 0 || staffRoles.length === 0)}
         onPrimary={finished ? () => complete("users") : () => void run()}
         busy={busy}
-        onSkip={finished ? undefined : () => skip("users")}
+        onSkip={finished ? undefined : () => { draft.current = null; skip("users"); }}
       />
     </Screen>
   );

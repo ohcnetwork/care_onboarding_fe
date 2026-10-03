@@ -118,7 +118,17 @@ export function FacilityStep() {
             <PhoneInput id="fphone" value={form.phone} onChange={(phone) => set({ phone })} />
           </Field>
           <Field label="PIN code" htmlFor="fpin" required error={show("pincode")}>
-            <Input id="fpin" value={form.pincode} placeholder="683101" inputMode="numeric" onChange={(e) => set({ pincode: e.target.value })} />
+            <Input id="fpin" value={form.pincode} placeholder="683101" inputMode="numeric" maxLength={6}
+              onChange={(e) => set({ pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+              onPaste={(e) => {
+                e.preventDefault();
+                const input = e.currentTarget;
+                const pasted = e.clipboardData.getData("text").replace(/\D/g, "");
+                const start = input.selectionStart ?? form.pincode.length;
+                const end = input.selectionEnd ?? start;
+                set({ pincode: (form.pincode.slice(0, start) + pasted + form.pincode.slice(end)).slice(0, 6) });
+              }}
+            />
           </Field>
           <Field label="Address" htmlFor="faddress" required error={show("address")} className="md:col-span-2">
             <textarea

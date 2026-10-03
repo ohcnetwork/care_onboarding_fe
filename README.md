@@ -108,7 +108,8 @@ Requests use this explicit setting, then `window.CARE_API_URL` if supplied by th
 - Prepare the bundled Indian states/districts and standard role organizations.
 - Choose a district and create one clinic.
 - Optionally add departments with matching locations and staff memberships.
-- Staff role selection excludes Administrator and Facility Admin. The separate **Add as Facility Admin in Administration** checkbox adds Facility Admin membership in the clinic's Administration department without changing the selected clinical/staff role.
+- Each staff member must have at least one explicitly selected department before any staff accounts or memberships are saved. Facility Admin access does not replace this selection. If departments were skipped, use **Go back to departments**; staff drafts stay in memory while adding departments, not in browser storage. The entire staff step can still be skipped.
+- Staff role selection excludes Administrator, Facility Admin, and Volunteer. Volunteer remains available for role organization setup and questionnaire sharing. The separate **Add as Facility Admin in Administration** checkbox adds Facility Admin membership in the clinic's Administration department without changing the selected clinical/staff role.
 - Clinic and staff phone fields default to India (+91), offer a scrollable country-code selector, and require exactly 10 national digits. Only digits can be entered; the selected calling code is added to the API payload. This release uses the requested 10-digit rule for every selectable country, not country-specific phone-length validation.
 - Optionally configure invoice and patient numbering.
 - Load all eight bundled questionnaires in **Clinical questionnaires**, then the report template in a separate **Report templates** step. Each loads all its bundled data without a per-item picker. Existing records are retained and missing questionnaire sharing is repaired.
@@ -163,6 +164,8 @@ Progress schema 3 splits the old combined content step into questionnaires and t
 One browser tab at a time can run setup, using Web Locks on a secure CARE origin. This is not a server-wide lock across computers. Use one administrator/browser for initial setup.
 
 The CARE database is authoritative. Existing facilities block a new wizard except when matching saved progress. If creation succeeded but its response/checkpoint was lost, the recorded creation intent allows the administrator to confirm the matching facility and continue. No facility is adopted silently. Clearing browser storage loses resume context; this version does not provide server-side jobs or cross-browser resume.
+
+If this browser remembers a clinic but CARE successfully reports no facilities, setup offers **Start setup again** with confirmation. Check that you are connected to the intended deployment first, especially after a database reset or deployment change at the same URL. Resetting replaces only this plugin's checkpoint for the current CARE connection; it preserves your login, other browser storage, and all CARE database records, then rechecks CARE before restarting. This action is not offered for failed checks or when facilities exist. A hard refresh alone does not clear the saved checkpoint.
 
 Imports are not transactional. Successful records remain after failure; retries inspect existing data before new writes. Session/connection failures stop scheduling additional batch items. Leaving the plugin cancels outstanding browser requests and stops subsequent batch items; it cannot roll back a request already accepted by CARE. Existing staff roles are never silently changed. Browser storage failures block further setup rather than falsely promising resumability.
 

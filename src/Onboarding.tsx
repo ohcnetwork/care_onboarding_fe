@@ -15,7 +15,7 @@ import { FacilityStep } from "@/steps/facility-step";
 import { InvoiceStep } from "@/steps/invoice-step";
 import { PatientIdStep } from "@/steps/patient-id-step";
 import { StatesStep } from "@/steps/states-step";
-import { UsersStep } from "@/steps/users-step";
+import { UsersStep, type StaffDraft } from "@/steps/users-step";
 import "./style.css";
 
 class SetupBoundary extends Component<{ children: ReactNode }, { error: boolean }> {
@@ -45,7 +45,7 @@ function Done() {
 
 const SCREENS = {
   states: StatesStep, district: DistrictStep, facility: FacilityStep,
-  departments: DepartmentsStep, users: UsersStep, invoice: InvoiceStep,
+  departments: DepartmentsStep, invoice: InvoiceStep,
   "patient-id": PatientIdStep,
   questionnaires: () => <ContentStep kind="questionnaires" />,
   templates: () => <ContentStep kind="templates" />,
@@ -54,19 +54,23 @@ const SCREENS = {
 
 function Wizard() {
   const { progress, storageProblem, complete, reset } = useWizard();
-  const [gate, setGate] = useState<"checking" | "ready" | "existing" | "recover">("checking");
+  const [gate, setGate] = useState<"checking" | "ready" | "existing" | "recover" | "stale">("checking");
+  const [confirmReset, setConfirmReset] = useState(false);
   const [existing, setExisting] = useState<Facility[]>([]);
   const [problem, setProblem] = useState("");
   const [attempt, setAttempt] = useState(0);
   const page = useRef<HTMLDivElement>(null);
+  const staffDraft = useRef<StaffDraft | null>(null);
 
   useEffect(() => {
     if (storageProblem) return;
     let cancelled = false;
+    setGate("checking");
+    setConfirmReset(false);
     setProblem("");
     void (async () => {
       const user = await api.get<{ is_superuser: boolean }>("/users/getcurrentuser/");
-      if (!user.is_superuser) throw new Error("Only a CARE administrator can set up a clinic. Ask your administrator to sign in.");
+      if (user?.is_superuser !== true) throw new Error("Only a CARE administrator can set up a clinic. Ask your administrator to sign in.");
       const facilities = await listFacilities();
       if (cancelled) return;
       setExisting(facilities);
@@ -75,7 +79,7 @@ function Wizard() {
       } else if (facilities.length > 0) {
         setGate(progress.facilityIntent ? "recover" : "existing");
       } else if (progress.facilityId) {
-        throw new Error("The clinic from your saved setup could not be found. Please contact your administrator before continuing.");
+        setGate("stale");
       } else {
         setGate("ready");
       }
@@ -99,6 +103,30 @@ function Wizard() {
     <Button asChild><a href="/">Back to CARE</a></Button>
   </div>;
   if (gate === "checking") return <p role="status" className="p-6 text-gray-600">Checking your clinic...</p>;
+  if (gate === "stale") return <div ref={page} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <h1 className="text-2xl font-bold">{confirmReset ? "Start clinic setup again?" : "We couldn't find your clinic"}</h1>
+    <p className="my-4 text-gray-600">{confirmReset
+      ? "This will clear your saved setup progress in this browser so you can start from the beginning. No clinic records will be deleted, and you will stay signed in."
+      : "You have saved progress from an earlier setup, but no clinic is set up in CARE now. If you expected to find your clinic here, ask your administrator for help before starting again."}</p>
+    <div className="flex flex-wrap gap-2">
+      {confirmReset ? <>
+        <Button variant="destructive" onClick={() => {
+          try {
+            reset();
+            setGate("checking");
+            setAttempt((n) => n + 1);
+          } catch (error) {
+            setProblem(error instanceof Error ? error.message : "We couldn't restart your setup. Please try again.");
+          }
+        }}>Yes, start again</Button>
+        <Button onClick={() => setConfirmReset(false)}>Cancel</Button>
+      </> : <>
+        <Button onClick={() => setConfirmReset(true)}>Start setup again</Button>
+        <Button onClick={() => setAttempt((n) => n + 1)}>Try again</Button>
+      </>}
+      <Button asChild><a href="/">Back to CARE</a></Button>
+    </div>
+  </div>;
   if (gate === "existing" || gate === "recover") {
     const matches = existing.filter((f) =>
       f.name.trim().toLowerCase() === progress.facilityIntent?.name.trim().toLowerCase() &&
@@ -117,7 +145,7 @@ function Wizard() {
       <Button className="ml-2" asChild><a href="/">Back to CARE</a></Button>
     </div>;
   }
-  const Screen = SCREENS[progress.step];
+  const Screen = progress.step === "users" ? null : SCREENS[progress.step];
   return <div ref={page}>
     <header className="mb-6">
       <div className="flex items-center gap-2"><ClipboardList className="size-5 text-brand-ink" /><h2 className="text-2xl font-bold">Facility Setup</h2></div>
@@ -134,7 +162,7 @@ function Wizard() {
         </li>)}
       </ol>
     </nav>}
-    <Screen key={progress.step} />
+    {Screen ? <Screen key={progress.step} /> : <UsersStep draft={staffDraft} />}
     {progress.step === "states" && progress.facilityIntent && <Button className="mt-4" onClick={reset}>Start again before creating a clinic</Button>}
   </div>;
 }
