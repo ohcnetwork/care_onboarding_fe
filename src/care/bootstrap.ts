@@ -18,7 +18,7 @@ export async function prepareInstance(
     const existing = roles.find((org) => sameName(org.name, name));
     roleIds[name] = (existing ?? await createRoleOrganization(name)).id;
     return existing ? "skipped" : "created";
-  }, (p) => onProgress("Staff groups", p), 2);
+  }, (p) => onProgress("Roles", p), 2);
   saveRoles(roleIds);
   if (roleReport.failed) return false;
 

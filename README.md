@@ -20,7 +20,7 @@ Enable Frontend only, then save/apply and reload CARE. This hosted URL requires
 internet access from the browser; it does not require a local preview server.
 The entry file is a federation module, not a standalone application page.
 Automatic redirect requires the existing CARE frontend override configuration
-described below. Without it, open **Facility Setup** manually after login.
+described below. Without it, open **Clinic setup** manually after login.
 
 ### Automatic setup after login
 
@@ -55,8 +55,8 @@ every page or continuously during setup. Login, MFA and patient authentication
 remain CARE's responsibility; this plugin neither replaces nor bypasses them.
 
 Automatic redirect is enabled unless `config.redirect_after_login` is explicitly
-`false`. With that opt-out, **Facility Setup** remains available manually.
-After creating the clinic, return to **Facility Setup** in the same browser to
+`false`. With that opt-out, **Clinic setup** remains available manually.
+After creating the clinic, return to **Clinic setup** in the same browser to
 resume unfinished setup; existing facilities do not trigger automatic redirect.
 `/onboarding` remains an authenticated route alias for existing bookmarks.
 
@@ -85,7 +85,7 @@ In Desktop's plugin manager, add a **custom frontend-only plugin**:
 
 Save and apply, then reload CARE in the browser. Sign in through normal CARE login.
 With `UserDashboard` registered, the plugin redirects an empty instance from the
-home dashboard to setup. Otherwise open **Facility Setup** (`/admin/onboarding`).
+home dashboard to setup. Otherwise open **Clinic setup** (`/admin/onboarding`).
 Creating the clinic does not interrupt the remaining setup steps.
 
 The preview command must stay running. This localhost address is for testing on the same computer only; it is not a deployable URL for other clinic computers. Browser policy may block HTTP remotes from an HTTPS CARE page; in that case serve `dist/` through a trusted HTTPS static host with CORS and register its `assets/remoteEntry.js` URL. An unreachable remote will not appear in CARE's navigation.
@@ -109,12 +109,14 @@ Requests use this explicit setting, then `window.CARE_API_URL` if supplied by th
 - Choose a district and create one clinic.
 - Optionally add departments with matching locations and staff memberships.
 - Each staff member must have at least one explicitly selected department before any staff accounts or memberships are saved. Facility Admin access does not replace this selection. If departments were skipped, use **Go back to departments**; staff drafts stay in memory while adding departments, not in browser storage. The entire staff step can still be skipped.
-- Staff role selection excludes Administrator, Facility Admin, and Volunteer. Volunteer remains available for role organization setup and questionnaire sharing. The separate **Add as Facility Admin in Administration** checkbox adds Facility Admin membership in the clinic's Administration department without changing the selected clinical/staff role.
+- Staff role selection excludes Administrator, Facility Admin, and Volunteer. Volunteer remains available for role organization setup and questionnaire sharing. The separate **Can manage the clinic** checkbox adds Facility Admin membership in the clinic's Administration department without changing the selected clinical/staff role.
 - Clinic and staff phone fields default to India (+91), offer a scrollable country-code selector, and require exactly 10 national digits. Only digits can be entered; the selected calling code is added to the API payload. This release uses the requested 10-digit rule for every selectable country, not country-specific phone-length validation.
 - Optionally configure invoice and patient numbering.
-- Load all eight bundled questionnaires in **Clinical questionnaires**, then the report template in a separate **Report templates** step. Each loads all its bundled data without a per-item picker. Existing records are retained and missing questionnaire sharing is repaired.
+- Load all eight bundled questionnaires in **Clinical forms**, then the report template in a separate **Report templates** step. Each loads all its bundled data without a per-item picker. Existing records are retained and missing questionnaire sharing is repaired.
 - Missing or invalid staff and clinic fields are highlighted, with validation messages directly below each input. Numbering confirmations use green success panels.
 - Per-step progress and safe rechecks on retry, with technical details kept under an administrator disclosure.
+
+The wizard uses clinical-friendly labels such as **Roles**, **Clinic details**, and **Clinical forms** without changing CARE's underlying organizations or questionnaire APIs. A compact step indicator and expandable **View all steps** checklist show where you are without allowing unsafe jumps. Optional steps are marked and offer **Do this later**. Buttons describe the action in progress, completed steps show a clear confirmation, and failed batches never show 100% ready. Department choices can be toggled, staff cards are numbered, and missing fields receive focus after submission. Location and role lookups can be retried without reloading the page.
 
 The interface is English in this release. Styling follows CARE's Figtree font, form controls, spacing, colors and admin shell. Scoped CSS includes a scoped portal wrapper for selects and does not install another global reset.
 
@@ -165,7 +167,7 @@ One browser tab at a time can run setup, using Web Locks on a secure CARE origin
 
 The CARE database is authoritative. Existing facilities block a new wizard except when matching saved progress. If creation succeeded but its response/checkpoint was lost, the recorded creation intent allows the administrator to confirm the matching facility and continue. No facility is adopted silently. Clearing browser storage loses resume context; this version does not provide server-side jobs or cross-browser resume.
 
-If this browser remembers a clinic but CARE successfully reports no facilities, setup offers **Start setup again** with confirmation. Check that you are connected to the intended deployment first, especially after a database reset or deployment change at the same URL. Resetting replaces only this plugin's checkpoint for the current CARE connection; it preserves your login, other browser storage, and all CARE database records, then rechecks CARE before restarting. This action is not offered for failed checks or when facilities exist. A hard refresh alone does not clear the saved checkpoint.
+If this browser remembers a clinic but CARE successfully reports no facilities, setup offers **Set up a new clinic** with confirmation. Check that you are connected to the intended deployment first, especially after a database reset or deployment change at the same URL. Resetting replaces only this plugin's checkpoint for the current CARE connection; it preserves your login, other browser storage, and all CARE database records, then rechecks CARE before restarting. This action is not offered for failed checks or when facilities exist. A hard refresh alone does not clear the saved checkpoint.
 
 Imports are not transactional. Successful records remain after failure; retries inspect existing data before new writes. Session/connection failures stop scheduling additional batch items. Leaving the plugin cancels outstanding browser requests and stops subsequent batch items; it cannot roll back a request already accepted by CARE. Existing staff roles are never silently changed. Browser storage failures block further setup rather than falsely promising resumability.
 

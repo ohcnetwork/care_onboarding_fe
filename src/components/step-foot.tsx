@@ -9,6 +9,7 @@ export function StepFoot({
   onPrimary,
   primaryDisabled,
   busy,
+  busyLabel = "Saving...",
   onSkip,
   onBack,
   note,
@@ -17,6 +18,7 @@ export function StepFoot({
   onPrimary: () => void;
   primaryDisabled?: boolean;
   busy?: boolean;
+  busyLabel?: string;
   onSkip?: () => void;
   onBack?: () => void;
   note?: ReactNode;
@@ -30,21 +32,29 @@ export function StepFoot({
   return (
     <ScreenFoot>
       {onBack ? (
-        <Button disabled={busy} onClick={onBack}>
+        <Button className="order-2 sm:order-1" disabled={busy} onClick={onBack}>
           Back
         </Button>
       ) : null}
-      <Button variant="primary" size="lg" disabled={primaryDisabled || busy} onClick={onPrimary}>
-        {busy ? <Spinner /> : null}
-        {primary}
+      <Button variant="primary" size="lg" className="order-1 w-full sm:order-2 sm:w-auto" aria-busy={busy}
+        disabled={primaryDisabled || busy} onClick={(event) => {
+          const screen = event.currentTarget.closest('[data-slot="setup-screen"]');
+          onPrimary();
+          requestAnimationFrame(() => {
+            screen?.querySelector<HTMLElement>(
+              'input[aria-invalid="true"], textarea[aria-invalid="true"], button[aria-invalid="true"], fieldset[aria-invalid="true"] button:not(:disabled)',
+            )?.focus();
+          });
+        }}>
+        {busy ? <span aria-hidden="true"><Spinner /></span> : null}
+        {busy ? busyLabel : primary}
       </Button>
       {onSkip ? (
-        <Button variant="ghost" disabled={busy} onClick={onSkip}>
-          Skip for now
+        <Button className="order-3" variant="ghost" disabled={busy} onClick={onSkip}>
+          Do this later
         </Button>
       ) : null}
-      <div className="flex-1" />
-      {note ? <FootNote>{note}</FootNote> : null}
+      {note ? <div className="order-last w-full"><FootNote>{note}</FootNote></div> : null}
     </ScreenFoot>
   );
 }

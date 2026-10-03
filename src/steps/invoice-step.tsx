@@ -39,16 +39,16 @@ export function InvoiceStep() {
     <Screen>
       <ScreenHead
         title="Invoice numbers"
-        subtitle="Every invoice gets the facility's initials followed by a running number."
+        subtitle="Choose how your clinic's invoice numbers will look."
       />
       <ScreenBody disabled={busy}>
         <div className="flex max-w-[480px] flex-col gap-5">
           <Field
-            label="Facility initials"
+            label="Clinic initials"
             htmlFor="initials"
             required
             error={touched ? initialsError : undefined}
-            hint={`Taken from "${progress.facilityName}". Letters and digits only.`}
+            hint="Use 2 to 6 letters or numbers, for example PHC."
           >
             <Input
               id="initials"
@@ -59,22 +59,23 @@ export function InvoiceStep() {
             />
           </Field>
           <div className="rounded-xl border border-line bg-white px-4 py-3.5">
-            <div className="text-[11px] font-semibold tracking-[0.04em] text-faint uppercase">Preview</div>
-            <div className="mt-1 font-mono text-[15px] font-semibold text-brand-ink">
+            <div className="text-xs font-semibold text-faint">Example invoice numbers</div>
+            <div aria-live="polite" aria-atomic="true" className="mt-1 font-mono text-[15px] font-semibold text-brand-ink">
               {initials ? previewInvoice(initials, 0) : "—"}, {initials ? previewInvoice(initials, 1) : "—"}, …
             </div>
             <div className="mt-2 text-[12.5px] text-muted-foreground">
-              Numbers are assigned automatically. You can change the format later in CARE's billing settings.
+              CARE adds the next number automatically.
             </div>
           </div>
           {problem ? <Alert variant="danger">{problem}</Alert> : null}
-          {finished ? <Alert variant="success"><p className="font-semibold">Invoice numbering saved</p><p>New invoices will use {previewInvoice(initials, 0)} and continue automatically.</p></Alert> : null}
+          {finished ? <Alert variant="success">Invoice numbering saved. You can change it later in billing settings.</Alert> : null}
         </div>
       </ScreenBody>
       <StepFoot
-        primary={finished ? "Continue" : "Save"}
+        primary={finished ? "Continue" : "Save invoice numbers"}
         onPrimary={finished ? () => complete("invoice", { initials }) : () => void save()}
         busy={busy}
+        busyLabel="Saving invoice numbers..."
         onSkip={finished ? undefined : () => skip("invoice")}
       />
     </Screen>

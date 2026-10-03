@@ -90,6 +90,8 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
   const { progress, complete, skip, update, goTo } = useWizard();
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesProblem, setRolesProblem] = useState("");
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [rolesAttempt, setRolesAttempt] = useState(0);
   const [password, setPassword] = useState(draft.current?.password ?? "");
   const [showPassword, setShowPassword] = useState(false);
   const [rows, setRows] = useState<Row[]>(() => draft.current?.rows ?? [blankRow()]);
@@ -108,6 +110,8 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
 
   useEffect(() => {
     let cancelled = false;
+    setRolesLoading(true);
+    setRolesProblem("");
     listRoles()
       .then((list) => {
         if (cancelled) return;
@@ -118,11 +122,12 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
         );
         setRoles(offered);
       })
-      .catch((e) => !cancelled && setRolesProblem(errorText(e)));
+      .catch((e) => !cancelled && setRolesProblem(errorText(e)))
+      .finally(() => { if (!cancelled) setRolesLoading(false); });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [rolesAttempt]);
 
   const facilityAdminRole = useMemo(() => roles.find((r) => sameName(r.name, FACILITY_ADMIN)), [roles]);
   const staffRoles = roles.filter((role) => ![FACILITY_ADMIN, "Administrator", "Volunteer"].some((name) => sameName(role.name, name)));
@@ -165,9 +170,9 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
         (r) => r.username,
         async (r) => {
           const role = staffRoles.find((x) => x.id === r.role);
-          if (!role) throw new Error("role not found");
+          if (!role) throw new Error("This role is no longer available. Choose another role.");
           const roleOrg = progress.roleOrganizations[role.name] ?? Object.entries(progress.roleOrganizations).find(([n]) => sameName(n, role.name))?.[1];
-          if (!roleOrg) throw new Error("A required staff group is missing. Please contact your administrator.");
+          if (!roleOrg) throw new Error("A required role is missing. Ask your administrator for help.");
           let user = await findUser(r.username.trim());
           let outcome: "created" | "skipped" | "repaired" = "skipped";
           if (!user) {
@@ -231,29 +236,32 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
     <Screen>
       <ScreenHead
         title="Staff accounts"
-        subtitle="Add the people who will use CARE. New staff receive the starting password below and should change it after signing in."
+        subtitle="Add each person's details, role and departments."
       />
       <ScreenBody disabled={busy}>
         <div className="flex max-w-[760px] flex-col gap-5">
-          {rolesProblem ? <Alert variant="danger">{rolesProblem}</Alert> : null}
+          {rolesProblem || (!rolesLoading && !staffRoles.length) ? <div className="space-y-2">
+            <Alert variant="danger">{rolesProblem || "No staff roles are available. Ask your administrator to add roles in CARE."}</Alert>
+            <Button onClick={() => setRolesAttempt((n) => n + 1)}>Reload roles</Button>
+          </div> : null}
           {!progress.departments.length ? (
             <Alert>
-              <p>Add a department before adding staff, or skip staff accounts for now.</p>
+              <p>Add a department first, or choose Do this later.</p>
               <Button type="button" className="mt-3" onClick={backToDepartments}>
                 Go back to departments
               </Button>
-              <p className="mt-2 text-xs">Your staff details will stay here while you add departments. Keep this page open.</p>
+              <p className="mt-2 text-xs">Your entries will stay here. Keep this page open.</p>
             </Alert>
           ) : null}
 
           {rows.map((r, i) => {
             const errors: RowErrors = { ...(touched ? allErrors[i] : {}), ...serverErrors[r.key] };
             return (
-              <div key={r.key} className="rounded-xl border border-line bg-white p-4">
+              <div key={r.key} data-staff-row className="rounded-xl border border-line bg-white p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <span className="text-[11.5px] font-bold tracking-[0.03em] text-faint uppercase">User {i + 1}</span>
+                  <h2 className="text-sm font-semibold">Staff member {i + 1}</h2>
                   {rows.length > 1 && !finished ? (
-                    <button type="button" className="text-[12.5px] font-semibold text-danger-ink" onClick={() => setRows((l) => l.filter((x) => x.key !== r.key))}>
+                    <button type="button" aria-label={`Remove staff member ${i + 1}`} className="text-sm font-semibold text-danger-ink" onClick={() => setRows((l) => l.filter((x) => x.key !== r.key))}>
                       Remove
                     </button>
                   ) : null}
@@ -265,13 +273,13 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
                   <Field label="Last name" required error={errors.last_name}>
                     <Input value={r.last_name} disabled={finished} onChange={(e) => patch(r.key, { last_name: e.target.value })} />
                   </Field>
-                  <Field label="Username" required error={errors.username}>
+                  <Field label="Username" required hint="Used to sign in to CARE." error={errors.username}>
                     <Input value={r.username} autoCapitalize="none" spellCheck={false} disabled={finished} onChange={(e) => patch(r.key, { username: e.target.value })} />
                   </Field>
                   <Field label="Role" required error={errors.role}>
-                    <Select value={r.role} disabled={finished} onValueChange={(v) => patch(r.key, { role: v })}>
+                    <Select value={r.role} disabled={finished || rolesLoading} onValueChange={(v) => patch(r.key, { role: v })}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select role" />
+                        <SelectValue placeholder={rolesLoading ? "Loading roles..." : "Choose a role"} />
                       </SelectTrigger>
                       <SelectContent>
                         {staffRoles.map((role) => (
@@ -291,7 +299,7 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
                   <Field label="Gender" required error={errors.gender}>
                     <Select value={r.gender} disabled={finished} onValueChange={(v) => patch(r.key, { gender: v as Gender })}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select" />
+                        <SelectValue placeholder="Choose a gender" />
                       </SelectTrigger>
                       <SelectContent>
                         {GENDERS.map((g) => (
@@ -305,9 +313,9 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
                   <div className="flex flex-col justify-end gap-1 pb-1">
                     <label className="flex cursor-pointer items-center gap-2 text-[13px]">
                       <Checkbox checked={r.facilityAdmin} disabled={finished || !facilityAdminRole} onCheckedChange={(v) => patch(r.key, { facilityAdmin: v === true })} />
-                      Add as Facility Admin in Administration
+                      Can manage the clinic
                     </label>
-                    <span className="pl-6 text-xs text-faint">Adds this person to the Administration department with the Facility Admin role. Their selected staff role stays unchanged.</span>
+                    <span className="pl-6 text-xs text-faint">Adds clinic administrator access without changing their staff role.</span>
                   </div>
                 </div>
                 <fieldset
@@ -344,7 +352,7 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
                       })}
                     </div>
                   ) : (
-                    <div className="text-[12.5px] text-muted-foreground">No departments were created in the previous step.</div>
+                    <div className="text-sm text-muted-foreground">Add a department to choose it here.</div>
                   )}
                   {errors.departments ? (
                     <div id={`departments-${r.key}-error`} role="alert" className="mt-2 text-sm text-red-500">
@@ -357,17 +365,24 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
           })}
 
           {!finished ? (
-            <Button type="button" className="justify-center" onClick={() => setRows((l) => [...l, blankRow()])}>
+            <Button type="button" className="justify-center" onClick={(event) => {
+              const screen = event.currentTarget.closest('[data-slot="setup-screen"]');
+              setRows((l) => [...l, blankRow()]);
+              requestAnimationFrame(() => {
+                const cards = screen?.querySelectorAll('[data-staff-row]');
+                cards?.[cards.length - 1]?.querySelector<HTMLInputElement>("input")?.focus();
+              });
+            }}>
               <Plus className="size-4" /> Add another staff member
             </Button>
           ) : null}
 
           <Field
-            label="Starting password for all users"
+            label="Starting password for all staff"
             htmlFor="pw"
             required
             error={passwordError || (touched ? pwProblem : undefined)}
-            hint="At least 8 characters, not only digits, and not too common."
+            hint="Use 8 or more characters, not just numbers. Ask each person to change it after signing in."
           >
             <div className="flex gap-2">
               <Input
@@ -379,8 +394,8 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
                 onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
                 className="max-w-[320px] font-mono"
               />
-              <Button type="button" onClick={() => setShowPassword((v) => !v)}>
-                {showPassword ? "Hide" : "Show"}
+              <Button type="button" aria-pressed={showPassword} onClick={() => setShowPassword((v) => !v)}>
+                {showPassword ? "Hide password" : "Show password"}
               </Button>
             </div>
           </Field>
@@ -391,10 +406,11 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
         </div>
       </ScreenBody>
       <StepFoot
-        primary={finished ? "Continue" : "Add staff"}
-        primaryDisabled={!finished && (rows.length === 0 || staffRoles.length === 0)}
+        primary={finished ? "Continue" : batch || problem ? "Try again" : "Add staff"}
+        primaryDisabled={!finished && (rows.length === 0 || staffRoles.length === 0 || rolesLoading)}
         onPrimary={finished ? () => complete("users") : () => void run()}
         busy={busy}
+        busyLabel="Adding staff..."
         onSkip={finished ? undefined : () => { draft.current = null; skip("users"); }}
       />
     </Screen>

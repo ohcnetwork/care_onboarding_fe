@@ -12,17 +12,17 @@ export default {
   ],
   routes: {
     "/onboarding": () => (
-      <Suspense fallback={<p role="status">Opening facility setup...</p>}>
+      <Suspense fallback={<p role="status">Opening clinic setup...</p>}>
         <Onboarding />
       </Suspense>
     ),
     "/admin/onboarding": () => (
-      <Suspense fallback={<p role="status">Opening facility setup...</p>}>
+      <Suspense fallback={<p role="status">Opening clinic setup...</p>}>
         <Onboarding />
       </Suspense>
     ),
   },
   adminNavItems: [
-    { name: "Facility Setup", url: "/admin/onboarding", icon: <ClipboardList className="size-4" /> },
+    { name: "Clinic setup", url: "/admin/onboarding", icon: <ClipboardList className="size-4" /> },
   ],
 };

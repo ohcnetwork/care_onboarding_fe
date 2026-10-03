@@ -28,17 +28,19 @@ export function StatesStep() {
     } finally { setBusy(false); }
   };
   return <Screen>
-    <ScreenHead title="Let's prepare your clinic" subtitle="First, we'll add the standard states, districts and staff groups. You do not need to enter these yourself." />
+    <ScreenHead title="Let's prepare your clinic" subtitle="Add standard roles, states and districts in one click." />
     <ScreenBody disabled={busy}>
       <div className="max-w-2xl space-y-4">
-        <Alert>Keep this page open while setup runs. Your progress is saved in this browser, and anything already added will be kept.</Alert>
-        <p className="text-sm text-gray-600">Next, you'll enter your clinic details and staff, then we'll add standard forms and a report template.</p>
-        <p className="text-sm text-gray-600">Tests, scans and procedures are not loaded by this version. Your administrator can configure them in CARE settings.</p>
-        {Object.entries(reports).map(([title, progress]) => <BatchPanel key={title} title={title} progress={progress} running={busy && active === title} />)}
+        <Alert>Keep this page open. Anything already added will be kept.</Alert>
+        <p className="text-sm text-gray-600">Tests, scans and procedures need to be set up separately in CARE settings.</p>
+        <div className="grid gap-3 md:grid-cols-3">
+          {Object.entries(reports).map(([title, progress]) => <BatchPanel key={title} title={title} progress={progress} running={busy && active === title} />)}
+        </div>
         {problem && <Alert variant="danger">{problem}</Alert>}
+        {finished && <Alert variant="success">CARE is ready. Choose your clinic's location next.</Alert>}
       </div>
     </ScreenBody>
-    <StepFoot primary={finished ? "Continue" : Object.keys(reports).length ? "Try again" : "Get started"}
-      busy={busy} onPrimary={finished ? () => complete("states") : () => void run()} />
+    <StepFoot primary={finished ? "Continue" : Object.keys(reports).length || problem ? "Try again" : "Get started"}
+      busy={busy} busyLabel="Preparing CARE..." onPrimary={finished ? () => complete("states") : () => void run()} />
   </Screen>;
 }

@@ -5,6 +5,7 @@ import { Field } from "@/components/field";
 import { Screen, ScreenBody, ScreenHead } from "@/components/screen";
 import { StepFoot } from "@/components/step-foot";
 import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { errorText } from "@/lib/format";
 import { useWizard } from "@/state/wizard";
@@ -17,27 +18,33 @@ export function DistrictStep() {
   const [districtId, setDistrictId] = useState(progress.districtId);
   const [loading, setLoading] = useState(true);
   const [districtLoading, setDistrictLoading] = useState(false);
-  const [problem, setProblem] = useState("");
+  const [statesProblem, setStatesProblem] = useState("");
+  const [districtsProblem, setDistrictsProblem] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const problem = statesProblem || districtsProblem;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setStatesProblem("");
+    setStates([]);
     listStates()
       .then((list) => {
         if (cancelled) return;
         setStates([...list].sort((a, b) => a.name.localeCompare(b.name)));
-        setProblem("");
       })
-      .catch((e) => !cancelled && setProblem(errorText(e)))
+      .catch((e) => !cancelled && setStatesProblem(errorText(e)))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
 
   useEffect(() => {
+    setDistrictsProblem("");
     if (!stateId) {
       setDistricts([]);
+      setDistrictLoading(false);
       return;
     }
     let cancelled = false;
@@ -47,14 +54,13 @@ export function DistrictStep() {
       .then((list) => {
         if (cancelled) return;
         setDistricts([...list].sort((a, b) => a.name.localeCompare(b.name)));
-        setProblem("");
       })
-      .catch((e) => !cancelled && setProblem(errorText(e)))
+      .catch((e) => !cancelled && setDistrictsProblem(errorText(e)))
       .finally(() => !cancelled && setDistrictLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [stateId]);
+  }, [stateId, attempt]);
 
   const onState = (id: string) => {
     setStateId(id);
@@ -75,7 +81,7 @@ export function DistrictStep() {
           <Field label="State" htmlFor="state" required>
             <Select value={stateId} onValueChange={onState} disabled={loading}>
               <SelectTrigger id="state">
-                <SelectValue placeholder={loading ? "Loading…" : "Select a state"} />
+                <SelectValue placeholder={loading ? "Loading states..." : "Choose a state"} />
               </SelectTrigger>
               <SelectContent>
                 {states.map((s) => (
@@ -89,7 +95,7 @@ export function DistrictStep() {
           <Field label="District" htmlFor="district" required>
             <Select value={districtId} onValueChange={setDistrictId} disabled={!stateId || districtLoading}>
               <SelectTrigger id="district">
-                <SelectValue placeholder={districtLoading ? "Loading districts..." : stateId ? "Select a district" : "Pick a state first"} />
+                <SelectValue placeholder={districtLoading ? "Loading districts..." : stateId ? "Choose a district" : "Choose a state first"} />
               </SelectTrigger>
               <SelectContent>
                 {districts.map((d) => (
@@ -100,15 +106,18 @@ export function DistrictStep() {
               </SelectContent>
             </Select>
           </Field>
-          {!loading && states.length === 0 ? (
-            <Alert variant="danger">No states found. Go back and load the states and districts first.</Alert>
+          {!loading && !problem && states.length === 0 ? (
+            <Alert variant="danger">No states are available yet. Go back and prepare CARE first.</Alert>
           ) : null}
-          {problem ? <Alert variant="danger">{problem}</Alert> : null}
+          {problem ? <div className="space-y-2">
+            <Alert variant="danger">{problem}</Alert>
+            <Button onClick={() => setAttempt((n) => n + 1)} disabled={loading || districtLoading}>Try again</Button>
+          </div> : null}
         </div>
       </ScreenBody>
       <StepFoot
         primary="Continue"
-        primaryDisabled={!state || !district || districtLoading}
+        primaryDisabled={!state || !district || loading || districtLoading || !!problem}
         onPrimary={() =>
           complete("district", {
             stateId,

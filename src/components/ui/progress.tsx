@@ -17,7 +17,7 @@ function Progress({
     >
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
-        className="h-full rounded-full bg-gray-900 transition-[width] duration-300 ease-out"
+        className="h-full rounded-full bg-brand-ink transition-[width] duration-300 ease-out"
         style={{ width: `${value ?? 0}%` }}
       />
     </ProgressPrimitive.Root>

@@ -10,7 +10,7 @@ beforeEach(() => {
 });
 afterEach(() => { globalThis.fetch = originalFetch; });
 
-test("a failed staff-group import never proceeds to states or marks preparation complete", async () => {
+test("a failed role import never proceeds to states or marks preparation complete", async () => {
   globalThis.fetch = async (url, options) => {
     if (options?.method === "GET") {
       assert.match(String(url), /org_type=role/);
@@ -18,7 +18,9 @@ test("a failed staff-group import never proceeds to states or marks preparation 
     }
     return Response.json({ detail: "Invalid data" }, { status: 400 });
   };
-  assert.equal(await prepareInstance(() => {}, () => {}), false);
+  const titles = new Set<string>();
+  assert.equal(await prepareInstance((title) => { titles.add(title); }, () => {}), false);
+  assert.deepEqual([...titles], ["Roles"]);
 });
 
 test("a completed geography import is idempotent across all 726 districts", async () => {

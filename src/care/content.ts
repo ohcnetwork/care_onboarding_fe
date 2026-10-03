@@ -35,7 +35,7 @@ export async function findQuestionnaire(slug: string): Promise<Questionnaire | n
     `/questionnaire/?slug=${encodeURIComponent(slug)}&auth_context=instance`,
   );
   const matches = questionnaires.filter((q) => q.slug === slug);
-  if (matches.length > 1) throw new Error("More than one standard questionnaire has the same name. Ask your administrator to review it in CARE.");
+  if (matches.length > 1) throw new Error("More than one clinical form has the same name. Ask your administrator to review it in CARE.");
   return matches[0] ?? null;
 }
 

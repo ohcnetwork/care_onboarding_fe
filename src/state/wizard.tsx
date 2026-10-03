@@ -6,13 +6,13 @@ import { emptyProgress, parseProgress, progressKey, STEP_IDS, type Progress, typ
 export type { Progress, StepId, Department } from "@/lib/progress";
 export const STEPS: { id: StepId; label: string; optional: boolean }[] = [
   { id: "states", label: "Get started", optional: false },
-  { id: "district", label: "Your district", optional: false },
-  { id: "facility", label: "Your clinic", optional: false },
+  { id: "district", label: "Clinic location", optional: false },
+  { id: "facility", label: "Clinic details", optional: false },
   { id: "departments", label: "Departments", optional: true },
   { id: "users", label: "Staff", optional: true },
   { id: "invoice", label: "Invoice numbers", optional: true },
   { id: "patient-id", label: "Patient numbers", optional: true },
-  { id: "questionnaires", label: "Questionnaires", optional: false },
+  { id: "questionnaires", label: "Clinical forms", optional: false },
   { id: "templates", label: "Report templates", optional: false },
 ];
 

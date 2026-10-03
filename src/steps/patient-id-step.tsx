@@ -36,7 +36,7 @@ export function PatientIdStep() {
         });
         setFinished(`New patients will receive numbers starting with ${previewPatientId(initials, 0)}.`);
       } else {
-        setFinished("A patient ID format already exists on this instance, so nothing was changed.");
+        setFinished("Patient numbering is already set up in CARE. Nothing was changed.");
       }
       update({ initials });
     } catch (e) {
@@ -50,11 +50,11 @@ export function PatientIdStep() {
     <Screen>
       <ScreenHead
         title="Patient numbers"
-        subtitle="The number printed on cards and reports, given automatically when a patient is registered. One series is shared across the whole instance."
+        subtitle="Give each new patient a number for their cards and reports."
       />
       <ScreenBody disabled={busy}>
         <div className="flex max-w-[480px] flex-col gap-5">
-          <Field label="Prefix" htmlFor="pinitials" required hint="Usually the facility initials." error={touched ? initialsError : undefined}>
+          <Field label="Starting letters or numbers" htmlFor="pinitials" required hint="Use 2 to 6 letters or numbers, for example PHC." error={touched ? initialsError : undefined}>
             <Input
               id="pinitials"
               value={initials}
@@ -64,12 +64,12 @@ export function PatientIdStep() {
             />
           </Field>
           <div className="rounded-xl border border-line bg-white px-4 py-3.5">
-            <div className="text-[11px] font-semibold tracking-[0.04em] text-faint uppercase">Preview</div>
-            <div className="mt-1 font-mono text-[15px] font-semibold text-brand-ink">
+            <div className="text-xs font-semibold text-faint">Example patient numbers</div>
+            <div aria-live="polite" aria-atomic="true" className="mt-1 font-mono text-[15px] font-semibold text-brand-ink">
               {initials ? previewPatientId(initials, 0) : "—"}, {initials ? previewPatientId(initials, 1) : "—"}, …
             </div>
             <div className="mt-2 text-[12.5px] text-muted-foreground">
-              Numbers are assigned automatically when a patient is registered. Your administrator can change the format later in CARE settings.
+              CARE adds the next number automatically. All clinics using this CARE share the same numbering.
             </div>
           </div>
           {problem ? <Alert variant="danger">{problem}</Alert> : null}
@@ -77,9 +77,10 @@ export function PatientIdStep() {
         </div>
       </ScreenBody>
       <StepFoot
-        primary={finished ? "Continue" : "Save"}
+        primary={finished ? "Continue" : "Save patient numbers"}
         onPrimary={finished ? () => complete("patient-id", { initials }) : () => void save()}
         busy={busy}
+        busyLabel="Saving patient numbers..."
         onSkip={finished ? undefined : () => skip("patient-id")}
       />
     </Screen>

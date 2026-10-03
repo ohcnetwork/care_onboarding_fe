@@ -14,7 +14,7 @@ const content = window.location.pathname === "/"
   : manifest.routes[window.location.pathname]?.();
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <aside className="host-sidebar"><strong>CARE</strong><p>Administration</p><p>Facility Setup</p></aside>
+    <aside className="host-sidebar"><strong>CARE</strong><p>Administration</p><p>{manifest.adminNavItems[0].name}</p></aside>
     <main className="host-main">
       {content}
     </main>

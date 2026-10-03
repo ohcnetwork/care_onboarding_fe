@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 export function Screen({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={cn("flex min-w-0 flex-1 flex-col rounded-xl border border-gray-200 bg-white shadow-sm", className)}>
+    <div data-slot="setup-screen" className={cn("flex min-w-0 flex-1 flex-col rounded-xl border border-gray-200 bg-white shadow-sm", className)}>
       {children}
     </div>
   );

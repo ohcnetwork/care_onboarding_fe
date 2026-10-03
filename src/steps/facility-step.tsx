@@ -26,8 +26,8 @@ const EMPTY: Form = { name: "", facility_type: "", phone: { country: "IN", numbe
 
 function validate(f: Form): Partial<Record<keyof Form, string>> {
   const errors: Partial<Record<keyof Form, string>> = {};
-  if (!f.name.trim()) errors.name = "Give the facility a name.";
-  if (!f.facility_type) errors.facility_type = "Pick a facility type.";
+  if (!f.name.trim()) errors.name = "Enter your clinic's name.";
+  if (!f.facility_type) errors.facility_type = "Choose a clinic type.";
   if (!validPhone(f.phone)) errors.phone = "Enter exactly 10 digits for the phone number.";
   if (!/^\d{6}$/.test(f.pincode.trim())) errors.pincode = "Enter the 6-digit PIN code.";
   if (!f.address.trim()) errors.address = "Enter the address.";
@@ -92,15 +92,15 @@ export function FacilityStep() {
   return (
     <Screen>
       <ScreenHead
-        title="Your clinic"
-        subtitle={`Your clinic will be placed under ${progress.districtName}, ${progress.stateName}.`}
+        title="Clinic details"
+        subtitle={`Add your clinic in ${progress.districtName}, ${progress.stateName}.`}
       />
       <ScreenBody disabled={busy}>
         <div className="grid max-w-[720px] grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label="Facility type" htmlFor="ftype" required error={show("facility_type")}>
+          <Field label="Clinic type" htmlFor="ftype" required error={show("facility_type")}>
             <Select value={form.facility_type} onValueChange={(v) => set({ facility_type: v })}>
               <SelectTrigger id="ftype">
-                <SelectValue placeholder="Select facility type" />
+                <SelectValue placeholder="Choose a clinic type" />
               </SelectTrigger>
               <SelectContent>
                 {FACILITY_TYPES.map((t) => (
@@ -111,7 +111,7 @@ export function FacilityStep() {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Facility name" htmlFor="fname" required error={show("name")}>
+          <Field label="Clinic name" htmlFor="fname" required error={show("name")}>
             <Input id="fname" value={form.name} placeholder="e.g. PHC Aluva" onChange={(e) => set({ name: e.target.value })} />
           </Field>
           <Field label="Phone number" htmlFor="fphone" required error={show("phone")}>
@@ -143,8 +143,8 @@ export function FacilityStep() {
               className="w-full rounded-md border border-line bg-white px-3 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus-visible:border-brand aria-invalid:border-red-500!"
             />
           </Field>
-          <Field label="Description" htmlFor="fdesc" error={show("description")} className="md:col-span-2">
-            <Input id="fdesc" value={form.description} placeholder="Optional" onChange={(e) => set({ description: e.target.value })} />
+          <Field label="About your clinic (optional)" htmlFor="fdesc" error={show("description")} className="md:col-span-2">
+            <Input id="fdesc" value={form.description} placeholder="A short description" onChange={(e) => set({ description: e.target.value })} />
           </Field>
           {problem ? (
             <div className="md:col-span-2">
@@ -157,8 +157,9 @@ export function FacilityStep() {
         primary="Create clinic"
         onPrimary={() => void create()}
         busy={busy}
+        busyLabel="Creating clinic..."
         onBack={() => goTo("district")}
-        note="The facility is created in CARE as soon as you press the button."
+        note="Creates your clinic in CARE. You can edit these details later."
       />
     </Screen>
   );
