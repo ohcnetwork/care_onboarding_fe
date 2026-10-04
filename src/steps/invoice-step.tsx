@@ -11,11 +11,10 @@ import { errorText } from "@/lib/format";
 import { useWizard } from "@/state/wizard";
 
 export function InvoiceStep() {
-  const { progress, complete, skip, update } = useWizard();
+  const { progress, complete, skip } = useWizard();
   const [initials, setInitials] = useState(progress.initials);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
-  const [finished, setFinished] = useState(false);
   const [touched, setTouched] = useState(false);
   const initialsError = initials.length < 2 ? "Enter at least 2 letters or digits." : undefined;
 
@@ -26,8 +25,7 @@ export function InvoiceStep() {
     setProblem("");
     try {
       await setInvoiceExpression(progress.facilityId, invoiceExpression(initials));
-      update({ initials });
-      setFinished(true);
+      complete("invoice", { initials });
     } catch (e) {
       setProblem(errorText(e));
     } finally {
@@ -53,7 +51,6 @@ export function InvoiceStep() {
             <Input
               id="initials"
               value={initials}
-              disabled={finished}
               className="max-w-[200px] font-mono uppercase"
               onChange={(e) => setInitials(cleanInitials(e.target.value))}
             />
@@ -68,15 +65,14 @@ export function InvoiceStep() {
             </div>
           </div>
           {problem ? <Alert variant="danger">{problem}</Alert> : null}
-          {finished ? <Alert variant="success">Invoice numbering saved. You can change it later in billing settings.</Alert> : null}
         </div>
       </ScreenBody>
       <StepFoot
-        primary={finished ? "Continue" : "Save invoice numbers"}
-        onPrimary={finished ? () => complete("invoice", { initials }) : () => void save()}
+        primary="Save invoice numbers"
+        onPrimary={() => void save()}
         busy={busy}
         busyLabel="Saving invoice numbers..."
-        onSkip={finished ? undefined : () => skip("invoice")}
+        onSkip={() => skip("invoice")}
       />
     </Screen>
   );

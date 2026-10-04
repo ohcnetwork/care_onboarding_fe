@@ -99,7 +99,6 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
   const [busy, setBusy] = useState(false);
   const [batch, setBatch] = useState<BatchProgress | null>(null);
   const [problem, setProblem] = useState("");
-  const [finished, setFinished] = useState(false);
   const [serverErrors, setServerErrors] = useState<Record<number, RowErrors>>({});
   const [passwordError, setPasswordError] = useState("");
 
@@ -220,11 +219,11 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
         setBatch,
         2,
       );
-      update({ users: [...new Set([...progress.users, ...created])] });
-      if (report.failed === 0) {
+      const patch = { users: [...new Set([...progress.users, ...created])] };
+      if (report.failed === 0 && report.done === report.total) {
+        complete("users", patch);
         draft.current = null;
-        setFinished(true);
-      }
+      } else update(patch);
     } catch (e) {
       setProblem(errorText(e));
     } finally {
@@ -260,7 +259,7 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
               <div key={r.key} data-staff-row className="rounded-xl border border-line bg-white p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-sm font-semibold">Staff member {i + 1}</h2>
-                  {rows.length > 1 && !finished ? (
+                  {rows.length > 1 ? (
                     <button type="button" aria-label={`Remove staff member ${i + 1}`} className="text-sm font-semibold text-danger-ink" onClick={() => setRows((l) => l.filter((x) => x.key !== r.key))}>
                       Remove
                     </button>
@@ -268,16 +267,16 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
                 </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Field label="First name" required error={errors.first_name}>
-                    <Input value={r.first_name} disabled={finished} onChange={(e) => patch(r.key, { first_name: e.target.value })} />
+                    <Input value={r.first_name} onChange={(e) => patch(r.key, { first_name: e.target.value })} />
                   </Field>
                   <Field label="Last name" required error={errors.last_name}>
-                    <Input value={r.last_name} disabled={finished} onChange={(e) => patch(r.key, { last_name: e.target.value })} />
+                    <Input value={r.last_name} onChange={(e) => patch(r.key, { last_name: e.target.value })} />
                   </Field>
                   <Field label="Username" required hint="Used to sign in to CARE." error={errors.username}>
-                    <Input value={r.username} autoCapitalize="none" spellCheck={false} disabled={finished} onChange={(e) => patch(r.key, { username: e.target.value })} />
+                    <Input value={r.username} autoCapitalize="none" spellCheck={false} onChange={(e) => patch(r.key, { username: e.target.value })} />
                   </Field>
                   <Field label="Role" required error={errors.role}>
-                    <Select value={r.role} disabled={finished || rolesLoading} onValueChange={(v) => patch(r.key, { role: v })}>
+                    <Select value={r.role} disabled={busy || rolesLoading} onValueChange={(v) => patch(r.key, { role: v })}>
                       <SelectTrigger>
                         <SelectValue placeholder={rolesLoading ? "Loading roles..." : "Choose a role"} />
                       </SelectTrigger>
@@ -291,13 +290,13 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
                     </Select>
                   </Field>
                   <Field label="Email" required error={errors.email}>
-                    <Input type="email" value={r.email} disabled={finished} onChange={(e) => patch(r.key, { email: e.target.value })} />
+                    <Input type="email" value={r.email} onChange={(e) => patch(r.key, { email: e.target.value })} />
                   </Field>
                   <Field label="Phone" required error={errors.phone}>
-                    <PhoneInput value={r.phone} disabled={finished} onChange={(phone) => patch(r.key, { phone })} />
+                    <PhoneInput value={r.phone} disabled={busy} onChange={(phone) => patch(r.key, { phone })} />
                   </Field>
                   <Field label="Gender" required error={errors.gender}>
-                    <Select value={r.gender} disabled={finished} onValueChange={(v) => patch(r.key, { gender: v as Gender })}>
+                    <Select value={r.gender} disabled={busy} onValueChange={(v) => patch(r.key, { gender: v as Gender })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Choose a gender" />
                       </SelectTrigger>
@@ -312,7 +311,7 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
                   </Field>
                   <div className="flex flex-col justify-end gap-1 pb-1">
                     <label className="flex cursor-pointer items-center gap-2 text-[13px]">
-                      <Checkbox checked={r.facilityAdmin} disabled={finished || !facilityAdminRole} onCheckedChange={(v) => patch(r.key, { facilityAdmin: v === true })} />
+                      <Checkbox checked={r.facilityAdmin} disabled={busy || !facilityAdminRole} onCheckedChange={(v) => patch(r.key, { facilityAdmin: v === true })} />
                       Can manage the clinic
                     </label>
                     <span className="pl-6 text-xs text-faint">Adds clinic administrator access without changing their staff role.</span>
@@ -335,7 +334,6 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
                           <button
                             key={d.name}
                             type="button"
-                            disabled={finished}
                             aria-pressed={on}
                             aria-describedby={errors.departments ? `departments-${r.key}-error` : undefined}
                             onClick={() => toggleDept(r.key, d.name)}
@@ -364,18 +362,16 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
             );
           })}
 
-          {!finished ? (
-            <Button type="button" className="justify-center" onClick={(event) => {
-              const screen = event.currentTarget.closest('[data-slot="setup-screen"]');
-              setRows((l) => [...l, blankRow()]);
-              requestAnimationFrame(() => {
-                const cards = screen?.querySelectorAll('[data-staff-row]');
-                cards?.[cards.length - 1]?.querySelector<HTMLInputElement>("input")?.focus();
-              });
-            }}>
-              <Plus className="size-4" /> Add another staff member
-            </Button>
-          ) : null}
+          <Button type="button" className="justify-center" onClick={(event) => {
+            const screen = event.currentTarget.closest('[data-slot="setup-screen"]');
+            setRows((l) => [...l, blankRow()]);
+            requestAnimationFrame(() => {
+              const cards = screen?.querySelectorAll('[data-staff-row]');
+              cards?.[cards.length - 1]?.querySelector<HTMLInputElement>("input")?.focus();
+            });
+          }}>
+            <Plus className="size-4" /> Add another staff member
+          </Button>
 
           <Field
             label="Starting password for all staff"
@@ -390,7 +386,6 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 autoComplete="new-password"
-                disabled={finished}
                 onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
                 className="max-w-[320px] font-mono"
               />
@@ -402,16 +397,15 @@ export function UsersStep({ draft }: { draft: RefObject<StaffDraft | null> }) {
 
           {batch ? <BatchPanel title="Staff accounts" progress={batch} running={busy} /> : null}
           {problem ? <Alert variant="danger">{problem}</Alert> : null}
-          {finished ? <Alert variant="success">Staff accounts are ready. Share the starting password with each person privately.</Alert> : null}
         </div>
       </ScreenBody>
       <StepFoot
-        primary={finished ? "Continue" : batch || problem ? "Try again" : "Add staff"}
-        primaryDisabled={!finished && (rows.length === 0 || staffRoles.length === 0 || rolesLoading)}
-        onPrimary={finished ? () => complete("users") : () => void run()}
+        primary={batch || problem ? "Try again" : "Add staff"}
+        primaryDisabled={rows.length === 0 || staffRoles.length === 0 || rolesLoading}
+        onPrimary={() => void run()}
         busy={busy}
         busyLabel="Adding staff..."
-        onSkip={finished ? undefined : () => { draft.current = null; skip("users"); }}
+        onSkip={() => { draft.current = null; skip("users"); }}
       />
     </Screen>
   );

@@ -1,28 +1,26 @@
 {
-  "version": "2026-09-30",
-  "source": "ohcnetwork/care_desktop/data-loading/data",
-  "questionnaire_and_template_source": "Copied from CARE Desktop fixtures; its documented upstream ref is ENG-737, which is no longer resolvable on GitHub.",
-  "api_contract_review": {
-    "care": "c7b5d597fc406bc616ab87b06a6054d7f6d192f6",
-    "care_fe": "2546061ece7f2f8a10e6ff669ad3bceed2fb830f"
+  "version": "2026-10-04",
+  "sources": {
+    "geography": "ohcnetwork/care_desktop/data-loading/data",
+    "clinical_catalog": "Curated standalone activity JSON originally extracted from master-repo.xlsx; the legacy workbook and converter are no longer required.",
+    "treatment_content": "User-supplied Treatment Form JSON and Treatment Summary HTML on 2026-10-04."
   },
-  "desktop_api_verification": {
-    "date": "2026-09-30",
-    "backend_image": "sha256:1c587db51b4a121a96a18d3c1ccbbcb66ee8f2303c3f4c29e9732771aab07ac5",
-    "questionnaire_lookup": "Instance-filtered slug list; UUID for detail and organization sharing",
-    "questionnaire_actions": "Send an explicit empty array when the fixture has no actions",
-    "payload_validation": "All eight questionnaires and the report template accepted by the installed backend in rolled-back transactions",
-    "live_import": "Verified through the federated plugin in CARE: eight questionnaires, required staff/district sharing, one report template, and zero duplicate writes on retry"
+  "content_import": {
+    "selection": "Optional per-item checkbox selection; nothing preselected; only checked records are imported.",
+    "template": "Treatment Summary reads completed Treatment Form answers. Legacy discharge-summary/advice references removed, invalid HTML and missing-value handling corrected. No logo configuration changes.",
+    "live_import": "These replacement fixtures have not yet been imported into the installed CARE database."
   },
   "included": {
     "states": 36,
     "districts": 726,
-    "questionnaires": 8,
+    "questionnaires": 1,
     "report_templates": 1
   },
   "clinical_catalog": {
-    "enabled": false,
-    "reason": "Supporting definition loaders, source-reference corrections and service/location mapping are required before clinical loading can be offered.",
-    "activity_definitions": 2023
+    "enabled": true,
+    "scope": "Optional category-selected, facility-owned standalone activity definitions. No charge, specimen, observation, healthcare-service or location records are imported.",
+    "activity_definitions": 2023,
+    "api_contract_review": "ohcnetwork/care@3fe704930d9b2d7b6ffdc212cbf6a6a72bfaede4",
+    "live_import": "Not yet verified against the installed Desktop backend; source contract, fixture validation and mocked API coverage only."
   }
 }

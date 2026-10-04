@@ -10,6 +10,7 @@ import { initialsOf } from "@/lib/format";
 import { progressKey } from "@/lib/progress";
 import { STEPS, WizardProvider, useWizard } from "@/state/wizard";
 import { ContentStep } from "@/steps/content-step";
+import { ClinicalDataStep } from "@/steps/clinical-data-step";
 import { DepartmentsStep } from "@/steps/departments-step";
 import { DistrictStep } from "@/steps/district-step";
 import { FacilityStep } from "@/steps/facility-step";
@@ -32,19 +33,22 @@ class SetupBoundary extends Component<{ children: ReactNode }, { error: boolean 
 }
 
 function Done() {
-  const { progress } = useWizard();
+  const { progress, goTo } = useWizard();
   const skipped = STEPS.filter((step) => progress.skipped[step.id]);
   return <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
     <Check className="mb-4 size-8 text-brand-ink" />
     <h1 className="text-2xl font-bold">Your clinic is set up</h1>
-    <p className="mt-2 text-gray-600">{progress.facilityName} is ready with clinical forms and a report template.</p>
+    <p className="mt-2 text-gray-600">{progress.facilityName} is ready. You can add more clinical data, forms and report templates whenever you need them.</p>
     {skipped.length > 0 && <div className="mt-4 rounded-lg bg-gray-50 p-4">
       <h2 className="text-sm font-semibold">To do later in CARE settings</h2>
       <ul className="mt-2 flex flex-wrap gap-2">
         {skipped.map((step) => <li key={step.id} className="rounded-full border border-line bg-white px-3 py-1 text-sm">{step.label}</li>)}
       </ul>
     </div>}
-    <p className="mt-4 text-sm text-gray-600">Tests, scans and procedures need to be set up separately in CARE settings.</p>
+    <p className="mt-4 text-sm text-gray-600">Prices, sample collection and result forms can be configured in CARE settings.</p>
+    <Button className="mt-4" onClick={() => goTo("clinical-data")}>Add clinical data</Button>
+    <Button className="ml-2 mt-4" onClick={() => goTo("questionnaires")}>Add clinical forms</Button>
+    <Button className="ml-2 mt-4" onClick={() => goTo("templates")}>Add report templates</Button>
     <Button variant="primary" className="mt-6" asChild><a href={`/facility/${progress.facilityId}`}>Open clinic</a></Button>
   </div>;
 }
@@ -53,6 +57,7 @@ const SCREENS = {
   states: StatesStep, district: DistrictStep, facility: FacilityStep,
   departments: DepartmentsStep, invoice: InvoiceStep,
   "patient-id": PatientIdStep,
+  "clinical-data": ClinicalDataStep,
   questionnaires: () => <ContentStep kind="questionnaires" />,
   templates: () => <ContentStep kind="templates" />,
   done: Done,

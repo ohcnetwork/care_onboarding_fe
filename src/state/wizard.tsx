@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
 
 import { apiBase } from "@/lib/api";
-import { emptyProgress, parseProgress, progressKey, STEP_IDS, type Progress, type StepId } from "@/lib/progress";
+import { emptyProgress, nextStep, parseProgress, progressKey, type Progress, type StepId } from "@/lib/progress";
 
 export type { Progress, StepId, Department } from "@/lib/progress";
 export const STEPS: { id: StepId; label: string; optional: boolean }[] = [
@@ -10,15 +10,12 @@ export const STEPS: { id: StepId; label: string; optional: boolean }[] = [
   { id: "facility", label: "Clinic details", optional: false },
   { id: "departments", label: "Departments", optional: true },
   { id: "users", label: "Staff", optional: true },
-  { id: "invoice", label: "Invoice numbers", optional: true },
   { id: "patient-id", label: "Patient numbers", optional: true },
-  { id: "questionnaires", label: "Clinical forms", optional: false },
-  { id: "templates", label: "Report templates", optional: false },
+  { id: "invoice", label: "Invoice numbers", optional: true },
+  { id: "clinical-data", label: "Clinical data", optional: true },
+  { id: "questionnaires", label: "Clinical forms", optional: true },
+  { id: "templates", label: "Report templates", optional: true },
 ];
-
-export function nextStep(step: StepId): StepId {
-  return STEP_IDS[Math.min(STEP_IDS.indexOf(step) + 1, STEP_IDS.length - 1)];
-}
 
 type Wizard = {
   progress: Progress;
@@ -63,14 +60,15 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     current.current = next;
     setProgress(next);
   }, [key]);
-  const complete = (step: StepId, patch: Partial<Progress> = {}) => update({
-    ...patch, step: nextStep(step),
-    done: { ...current.current.done, [step]: true },
-    skipped: { ...current.current.skipped, [step]: false },
-  });
+  const complete = (step: StepId, patch: Partial<Progress> = {}) => {
+    const done = { ...current.current.done, [step]: true };
+    const skipped = { ...current.current.skipped, [step]: false };
+    update({ ...patch, step: nextStep(step, { done, skipped }), done, skipped });
+  };
   const skip = (step: StepId) => {
     if (!STEPS.find((s) => s.id === step)?.optional) throw new Error("This step is required.");
-    update({ step: nextStep(step), skipped: { ...current.current.skipped, [step]: true } });
+    const skipped = { ...current.current.skipped, [step]: true };
+    update({ step: nextStep(step, { done: current.current.done, skipped }), skipped });
   };
   return <Context.Provider value={{
     progress, storageProblem, update,

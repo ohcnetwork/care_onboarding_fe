@@ -111,18 +111,37 @@ Requests use this explicit setting, then `window.CARE_API_URL` if supplied by th
 - Each staff member must have at least one explicitly selected department before any staff accounts or memberships are saved. Facility Admin access does not replace this selection. If departments were skipped, use **Go back to departments**; staff drafts stay in memory while adding departments, not in browser storage. The entire staff step can still be skipped.
 - Staff role selection excludes Administrator, Facility Admin, and Volunteer. Volunteer remains available for role organization setup and questionnaire sharing. The separate **Can manage the clinic** checkbox adds Facility Admin membership in the clinic's Administration department without changing the selected clinical/staff role.
 - Clinic and staff phone fields default to India (+91), offer a scrollable country-code selector, and require exactly 10 national digits. Only digits can be entered; the selected calling code is added to the API payload. This release uses the requested 10-digit rule for every selectable country, not country-specific phone-length validation.
-- Optionally configure invoice and patient numbering.
-- Load all eight bundled questionnaires in **Clinical forms**, then the report template in a separate **Report templates** step. Each loads all its bundled data without a per-item picker. Existing records are retained and missing questionnaire sharing is repaired.
-- Missing or invalid staff and clinic fields are highlighted, with validation messages directly below each input. Numbering confirmations use green success panels.
+- Optionally configure patient admission numbers first, then invoice numbers.
+- Optionally load **Clinical data** by selecting Biochemistry, Microbiology, Pathology, Procedures or Radiology. No categories are preselected. Only selected categories and their standalone activity definitions are added.
+- Optionally select **Treatment Form** in **Clinical forms** and **Treatment Summary** in **Report templates**. Both use per-item checkboxes with nothing preselected, import only checked items, and offer **Do this later**. The earlier eight test questionnaires and test report template have been removed from the bundle, not from CARE databases. Existing records are retained and missing sharing is repaired only for selected forms.
+- Missing or invalid staff and clinic fields are highlighted, with validation messages directly below each input.
 - Per-step progress and safe rechecks on retry, with technical details kept under an administrator disclosure.
 
-The wizard uses clinical-friendly labels such as **Roles**, **Clinic details**, and **Clinical forms** without changing CARE's underlying organizations or questionnaire APIs. A compact step indicator and expandable **View all steps** checklist show where you are without allowing unsafe jumps. Optional steps are marked and offer **Do this later**. Buttons describe the action in progress, completed steps show a clear confirmation, and failed batches never show 100% ready. Department choices can be toggled, staff cards are numbered, and missing fields receive focus after submission. Location and role lookups can be retried without reloading the page.
+The wizard uses clinical-friendly labels such as **Roles**, **Clinic details**, and **Clinical forms** without changing CARE's underlying organizations or questionnaire APIs. A compact step indicator and expandable **View all steps** checklist show where you are without allowing unsafe jumps. Optional steps are marked and offer **Do this later**. Buttons describe the action in progress. Successful saves/imports persist completion and immediately advance to the next step; the report-template import finishes setup automatically. Validation errors, failed/partial imports and checkpoint-storage failures never advance. Choosing a clinic location still requires submitting the selection, rather than navigating while choosing fields. Failed batches never show 100% ready. Department choices can be toggled, staff cards are numbered, and missing fields receive focus after submission. Location and role lookups can be retried without reloading the page.
 
 The interface is English in this release. Styling follows CARE's Figtree font, form controls, spacing, colors and admin shell. Scoped CSS includes a scoped portal wrapper for selects and does not install another global reset.
 
-### Explicitly not enabled yet
+### Standalone clinical data
 
-**Clinical catalogs:** `data_source/master-repo.xlsx` and generated activity definitions are preserved as authoring inputs, but are not imported or exposed as experimental user options. Specimen, observation and charge-item loaders, missing source-reference fixes, and healthcare-service/location mapping must be completed and validated against CARE first. The wizard states this limitation before setup and at completion.
+The curated JSON files in `data_source/activity-definitions/` are the source of truth for 2,023 activity definitions across five categories. They contain only names, slugs, codes, classifications, descriptions, usage and status, with the category declared once per file. The legacy Excel workbook, spreadsheet converter, row references and supporting-definition data have been removed.
+
+The importer creates or reuses facility-owned activity-definition categories (`resource_type: activity_definition`, `resource_sub_type: all:other`) before adding definitions. Category names are resolved to CARE category slugs. Existing root categories with matching names are reused only when their type/subtype match unambiguously; deterministic slug collisions are reported rather than silently adopted.
+
+Each definition uses `kind: service_request`, retains its clinical code/classification and explicitly sends empty charge, specimen, observation and location lists, a null healthcare service/body site/derived URI and empty diagnostic report codes. No supporting resources are created. These are selectable catalog entries, not measured results or complete laboratory workflows. Prices, sample collection and result forms require separate configuration in CARE.
+
+Retries paginate existing records and match exact facility-prefixed slugs case-insensitively; existing definitions and their customizations are never overwritten. A failed category prevents definition writes, and a failed category's activity batch stops later categories until retry. Successful writes are retained. Completed setup can reopen this optional step with **Add clinical data** without restarting completed/skipped form/template imports.
+
+### Treatment content
+
+The user-supplied sources are `data_source/content/treatment-form.json` and `treatment-summary.html`. `scripts/convert-content.mjs` generates the two import fixtures and the lightweight checkbox catalog. The form retains its ten questions, IDs, codes, link IDs and supplied emergency-contact instructions; review those instructions for the intended clinic before importing. Its numeric source version is converted to CARE's required string `"0.1"`.
+
+The adapted Treatment Summary preserves the supplied layout and clinical/diagnostic sections. It reads completed responses titled **Treatment Form**, rather than looking up the unavailable discharge-summary/discharge-advice forms. This avoids a missing-questionnaire database lookup when only the template is selected. The separate advice section is removed because the form already contains advice and follow-up fields. Missing bed/logo data and zero-valued results are handled, and malformed HTML is corrected. No branding feature is added. If a clinic renames Treatment Form, update the template's title match in CARE too.
+
+The template uses the new slug `treatment-form-summary`, avoiding accidental reuse of the old test report's `treatment-summary` slug. Unchecked content is never implicitly imported to satisfy template dependencies. New content and checkbox selections are not automatically applied to already-completed clinics; **Add clinical forms** and **Add report templates** on the completion screen reopen the appropriate optional step.
+
+The write contract was reviewed against `ohcnetwork/care` commit `3fe704930d9b2d7b6ffdc212cbf6a6a72bfaede4`. CARE validates clinical codes against its installed activity-definition procedure valueset; that terminology must be available. This standalone import has fixture and mocked API coverage but has not yet been verified against the installed Desktop backend.
+
+### Distribution limitation
 
 **Offline distribution:** the dataset is bundled with the plugin, but the GitHub Pages remote requires internet access. An offline deployment must host the complete plugin build locally and register that URL. No standalone Desktop loader is required by this plugin.
 
@@ -130,10 +149,12 @@ The interface is English in this release. Styling follows CARE's Figtree font, f
 
 All reusable source data is in `data_source/`. Clinic details and staff are entered in the wizard; records are saved only through CARE APIs into the clinic's database. No patient data, credentials or clinic exports belong in this repository.
 
+Keep `states-and-districts.json`, the five clinical category files and their index, and the two treatment authoring files under `content/`. Edit clinical JSON directly and keep category index counts in sync; `validate:data` checks them. The questionnaire/template fixtures and `content-index.json` are generated runtime assets, not legacy copies, and must stay in the repository.
+
 `data_source/manifest.json` records provenance, data version and inspected API contracts. The installed Desktop backend uses UUID questionnaire detail/sharing routes and supports slug-filtered list lookup. The importer explicitly sends `actions: []` when a fixture has no actions; omission triggers a server error in this backend. Sharing is reconciled through `get_organizations`/`set_organizations` after creation, since sending organizations with the creation payload alone does not establish it on every backend version.
 
 ```sh
-npm run convert        # spreadsheet -> data_source/activity-definitions/
+npm run convert        # regenerate treatment content fixtures/catalog
 npm run validate:data  # fixture shape, counts and duplicate checks
 npm test
 npm run build
@@ -155,13 +176,15 @@ verified against unmodified `ohcnetwork/care_fe` commit
 only build-environment configuration. The tests register the plugin specified by
 `ONBOARDING_REMOTE_URL` (defaults to the local preview URL).
 
-Commit spreadsheet and generated JSON changes together. CI checks the conversion diff. Static validation and mocked API tests do not replace a real import against the intended CARE backend version. The installed Desktop image recorded in the manifest was verified with a live browser import of all eight questionnaires, required organization sharing, and the report template; repeating each import produced no duplicate writes. Updating plugin assets never automatically applies new datasets to a completed clinic.
+Commit treatment authoring files and their generated JSON changes together. CI checks the conversion diff and validates the curated clinical JSON directly. Static validation and mocked API tests do not replace a real import against the intended CARE backend version. Updating plugin assets never automatically applies new datasets to a completed clinic.
 
 ## Recovery and scope
 
 Progress is stored in localStorage under a versioned, API-origin-scoped key. It contains clinic/organization IDs and names, completed staff IDs, and step status, not passwords or staff contact information. Staff drafts remain in memory. Closing or refreshing mid-step may require entering unfinished staff details again; matching existing usernames are not recreated.
 
-Progress schema 3 splits the old combined content step into questionnaires and templates. Schema 2 checkpoints migrate automatically: unfinished content resumes at questionnaires with safe rechecks, and completed content marks both steps complete. Existing clinic IDs and earlier completed steps are retained.
+Progress schema 5 adds per-item form/template choices, alongside the clinical category keys introduced in schema 4. Schema 2/3/4 checkpoints and the previous `2026-09-30` dataset migrate to `2026-10-04` without losing clinic IDs or earlier work. New forms/templates are unselected, and completed clinics stay complete rather than silently importing replacements. Unfinished combined content resumes at questionnaires; checkpoints already at clinical forms, templates or completion stay there and mark Clinical data for later when migrating from schema 2/3. No uploaded files, credentials or patient responses are stored in checkpoints.
+
+The numbering steps are now ordered patient then invoice. Older checkpoints remain at their saved step; completing or skipping either numbering step visits the other only if it has not already been completed/skipped. Reordering never silently loses a pending numbering step or forces an already configured one to be repeated.
 
 One browser tab at a time can run setup, using Web Locks on a secure CARE origin. This is not a server-wide lock across computers. Use one administrator/browser for initial setup.
 

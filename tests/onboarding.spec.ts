@@ -32,6 +32,9 @@ async function backend(context: BrowserContext, superuser = true) {
   let facility: Record<string, unknown> | undefined;
   const questionnaires = new Map<string, Record<string, unknown>>();
   let template: Record<string, unknown> | undefined;
+  const clinicalCategories: Record<string, unknown>[] = [];
+  const activities: Record<string, unknown>[] = [];
+  const clinicalPayloads: Record<string, unknown>[] = [];
   const departments = [{ id: "administration", name: "Administration", org_type: "root" }];
   const locations: { id: string; name: string }[] = [];
   const users = new Map<string, { id: string; username: string }>();
@@ -40,6 +43,7 @@ async function backend(context: BrowserContext, superuser = true) {
   const identifiers: Record<string, unknown>[] = [];
   let rejectUser = false;
   let rejectQuestionnaire = false;
+  let rejectActivity = false;
   await context.addInitScript(() => localStorage.setItem("care_access_token", "test-token"));
   await context.route("**/api/v1/**", async (route) => {
     const request = route.request();
@@ -67,6 +71,23 @@ async function backend(context: BrowserContext, superuser = true) {
       return page(url.searchParams.get("level_cache") === "0" ? states : districts);
     }
     if (path === "/role/") return page(roles);
+    if (path === "/facility/clinic-1/resource_category/") {
+      if (method === "GET") return page(clinicalCategories);
+      const category = { ...body, slug: `f-clinic-1-${body.slug_value}`, id: `category-${clinicalCategories.length}` };
+      clinicalCategories.push(category);
+      return send(category);
+    }
+    if (path === "/facility/clinic-1/activity_definition/") {
+      if (method === "GET") return page(activities);
+      clinicalPayloads.push(body);
+      if (rejectActivity) {
+        rejectActivity = false;
+        return send({ detail: "Activity could not be saved" }, 400);
+      }
+      const activity = { ...body, slug: `f-clinic-1-${body.slug_value}`, id: `activity-${activities.length}` };
+      activities.push(activity);
+      return send(activity);
+    }
     if (path === "/facility/clinic-1/organizations/") {
       if (method === "GET") return page(departments);
       const department = { ...body, id: `dept-${departments.length}` };
@@ -139,9 +160,11 @@ async function backend(context: BrowserContext, superuser = true) {
     }
     return send({ detail: `Unexpected test request: ${method} ${path}` }, 500);
   });
-  return { writes, phonePayloads, membershipPayloads,
+  return { writes, phonePayloads, membershipPayloads, clinicalPayloads, clinicalCategories, questionnaires,
+    getTemplate: () => template,
     rejectNextUser: () => { rejectUser = true; },
     rejectNextQuestionnaire: () => { rejectQuestionnaire = true; },
+    rejectNextActivity: () => { rejectActivity = true; },
     setFacility: (value: Record<string, unknown>) => { facility = value; } };
 }
 
@@ -151,9 +174,109 @@ async function resumeAt(context: BrowserContext, step: StepId) {
     districtId: "district-0-0", roleOrganizations: Object.fromEntries(roles.map((r) => [r.name, r.id])),
   };
   await context.addInitScript((progress) => {
-    localStorage.setItem(`care_onboarding_fe:${location.origin}:progress`, JSON.stringify(progress));
+    const key = `care_onboarding_fe:${location.origin}:progress`;
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(progress));
   }, progress);
 }
+
+test("clinical data loads only checked categories as standalone entries and survives retry and reload", async ({ page, context }, testInfo) => {
+  const { setFacility, writes, clinicalPayloads, clinicalCategories, rejectNextActivity } = await backend(context);
+  setFacility({ id: "clinic-1", name: "Example Clinic" });
+  await resumeAt(context, "clinical-data");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin/onboarding");
+  const add = page.getByRole("button", { name: "Add selected clinical data" });
+  await expect(page.getByRole("heading", { name: "Clinical data", exact: true })).toBeFocused();
+  await expect(page.getByRole("checkbox")).toHaveCount(5);
+  await expect(add).toBeDisabled();
+  for (const checkbox of await page.getByRole("checkbox").all()) await expect(checkbox).not.toBeChecked();
+  await page.getByRole("checkbox", { name: "Biochemistry", exact: true }).check();
+  await page.getByRole("checkbox", { name: "Pathology", exact: true }).check();
+  await expect(page.getByText("95 items selected", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: "Biochemistry", exact: true })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "Pathology", exact: true })).toBeChecked();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("clinical-data-mobile.png"), fullPage: true });
+  rejectNextActivity();
+  await add.click();
+  await expect(page.getByRole("progressbar", { name: "Biochemistry progress" })).toHaveAttribute("aria-valuetext", "28 of 29 ready");
+  expect(clinicalPayloads).toHaveLength(29);
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Clinical forms", exact: true })).toBeVisible();
+  expect(clinicalPayloads).toHaveLength(96);
+  expect(clinicalCategories.map((c) => c.title)).toEqual(["Biochemistry", "Pathology"]);
+  const categories = new Set(clinicalCategories.map((c) => c.slug));
+  for (const payload of clinicalPayloads) {
+    expect(categories.has(payload.category)).toBe(true);
+    expect(payload.kind).toBe("service_request");
+    expect(payload.code).toBeTruthy();
+    expect(payload.locations).toEqual([]);
+    expect(payload.specimen_requirements).toEqual([]);
+    expect(payload.observation_result_requirements).toEqual([]);
+    expect(payload.charge_item_definitions).toEqual([]);
+    expect(payload.healthcare_service).toBeNull();
+    expect(payload.source).toBeUndefined();
+  }
+  expect(writes.every((path) => /\/(resource_category|activity_definition)\/$/.test(path))).toBe(true);
+  await page.evaluate(() => {
+    const key = `care_onboarding_fe:${location.origin}:progress`;
+    const progress = JSON.parse(localStorage.getItem(key)!);
+    localStorage.setItem(key, JSON.stringify({ ...progress, step: "clinical-data" }));
+  });
+  await page.reload();
+  await add.click();
+  await expect(page.getByRole("heading", { name: "Clinical forms", exact: true })).toBeVisible();
+  expect(clinicalPayloads).toHaveLength(96);
+  expect(clinicalCategories).toHaveLength(2);
+});
+
+test("clinical data can be skipped without making any writes", async ({ page, context }) => {
+  const { setFacility, writes } = await backend(context);
+  setFacility({ id: "clinic-1", name: "Example Clinic" });
+  await resumeAt(context, "clinical-data");
+  await page.goto("/admin/onboarding");
+  await page.getByRole("checkbox", { name: "Radiology", exact: true }).check();
+  await page.getByRole("button", { name: "Do this later" }).click();
+  await expect(page.getByRole("heading", { name: "Clinical forms", exact: true })).toBeVisible();
+  expect(writes).toEqual([]);
+});
+
+test("a clinical category failure is visible and blocks all activity writes", async ({ page, context }) => {
+  const { setFacility, clinicalPayloads } = await backend(context);
+  setFacility({ id: "clinic-1", name: "Example Clinic" });
+  await resumeAt(context, "clinical-data");
+  await context.route("**/resource_category/**", (route) => route.request().method() === "POST"
+    ? route.fulfill({ status: 403, json: { detail: "Category write denied" } }) : route.fallback());
+  await page.goto("/admin/onboarding");
+  await page.getByRole("checkbox", { name: "Biochemistry", exact: true }).check();
+  await page.getByRole("button", { name: "Add selected clinical data" }).click();
+  await expect(page.getByText("Your account does not have permission to complete this action.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again", exact: true })).toBeEnabled();
+  expect(clinicalPayloads).toEqual([]);
+});
+
+test("completed legacy setup does not import automatically and can add clinical data without repeating forms", async ({ page, context }) => {
+  const { setFacility, writes, clinicalPayloads } = await backend(context);
+  setFacility({ id: "clinic-1", name: "Example Clinic" });
+  await context.addInitScript(() => {
+    localStorage.setItem(`care_onboarding_fe:${location.origin}:progress`, JSON.stringify({
+      version: 3, dataset: "2026-09-30", step: "done", facilityId: "clinic-1", facilityName: "Example Clinic",
+      districtId: "", districtName: "", stateId: "", stateName: "", initials: "", administrationId: "",
+      done: { questionnaires: true, templates: true }, skipped: {}, roleOrganizations: {}, departments: [], users: [], facilityIntent: null,
+    }));
+  });
+  await page.goto("/admin/onboarding");
+  await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
+  expect(writes).toEqual([]);
+  await page.getByRole("button", { name: "Add clinical data", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Biochemistry", exact: true }).check();
+  await page.getByRole("button", { name: "Add selected clinical data" }).click();
+  await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
+  expect(clinicalPayloads).toHaveLength(29);
+  expect(writes.some((path) => /\/(questionnaire|template)\/$/.test(path))).toBe(false);
+});
 
 test("loads as a federated remote and completes simple onboarding without editing static data", async ({ page, context }, testInfo) => {
   const errors: string[] = [];
@@ -164,7 +287,7 @@ test("loads as a federated remote and completes simple onboarding without editin
   await expect(page.getByRole("button", { name: "Get started" })).toHaveCSS("background-color", "rgb(4, 108, 78)");
   await page.screenshot({ path: testInfo.outputPath("onboarding-desktop.png"), fullPage: true });
   await page.getByRole("button", { name: "Get started" }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Where is your clinic?", exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "State", exact: true }).click();
   await page.getByRole("option", { name: states[0].name, exact: true }).click();
   await page.getByRole("combobox", { name: "District", exact: true }).click();
@@ -178,23 +301,25 @@ test("loads as a federated remote and completes simple onboarding without editin
   await page.getByLabel("PIN code").fill("683101");
   await page.getByLabel("Address").fill("Example road");
   await page.getByRole("button", { name: "Create clinic" }).click();
-  for (const heading of ["Departments", "Staff accounts", "Invoice numbers", "Patient numbers"]) {
+  for (const heading of ["Departments", "Staff accounts", "Patient numbers", "Invoice numbers", "Clinical data"]) {
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Do this later" }).click();
   }
   await expect(page.getByRole("heading", { name: "Clinical forms" })).toBeVisible();
-  await expect(page.getByRole("checkbox")).toHaveCount(0);
-  await page.getByRole("button", { name: "Add clinical forms" }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("checkbox")).toHaveCount(1);
+  await expect(page.getByRole("checkbox", { name: "Treatment Form", exact: true })).not.toBeChecked();
+  await page.getByRole("checkbox", { name: "Treatment Form", exact: true }).check();
+  await page.getByRole("button", { name: "Add selected forms" }).click();
+  await expect(page.getByRole("heading", { name: "Report templates", exact: true })).toBeVisible();
   expect(writes.filter((path) => path === "/template/")).toHaveLength(0);
   await expect(page.getByRole("heading", { name: "Report templates", exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Report templates", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Add report templates" }).click();
-  await page.getByRole("button", { name: "Finish setup" }).click();
+  await page.getByRole("checkbox", { name: "Treatment Summary", exact: true }).check();
+  await page.getByRole("button", { name: "Add selected templates" }).click();
   await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
   expect(writes.filter((path) => path === "/facility/")).toHaveLength(1);
-  expect(writes.filter((path) => path === "/questionnaire/")).toHaveLength(8);
+  expect(writes.filter((path) => path === "/questionnaire/")).toHaveLength(1);
   expect(writes.filter((path) => path === "/template/")).toHaveLength(1);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
@@ -438,7 +563,7 @@ test("creates department links, staff access and numbering before loading standa
   await page.goto("/admin/onboarding");
   await page.getByRole("button", { name: "Laboratory", exact: true }).click();
   await page.getByRole("button", { name: "Save departments" }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Staff accounts", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add staff", exact: true }).click();
   for (const label of ["Starting password for all staff", "First name", "Last name", "Username", "Email", "Phone"]) {
     const input = page.getByRole("textbox", { name: label, exact: true });
@@ -477,9 +602,9 @@ test("creates department links, staff access and numbering before loading standa
   await page.getByRole("textbox", { name: "Email", exact: true }).fill("updated@clinic.test");
   await page.getByLabel("Starting password for all staff").fill("Updated-password-42");
   await page.getByRole("button", { name: "Try again", exact: true }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  for (const heading of ["Invoice numbers", "Patient numbers"]) {
+  for (const heading of ["Patient numbers", "Invoice numbers"]) {
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    if (heading === "Patient numbers") await expect(page.getByText("This is the patient's admission number, used on their cards and reports.", { exact: true })).toBeVisible();
     const prefix = page.getByRole("textbox");
     await prefix.fill("");
     await page.getByRole("button", { name: `Save ${heading.toLowerCase()}`, exact: true }).click();
@@ -488,14 +613,14 @@ test("creates department links, staff access and numbering before loading standa
     await expect(prefix).toHaveAccessibleDescription("Enter at least 2 letters or digits.");
     await prefix.fill("EC");
     await page.getByRole("button", { name: `Save ${heading.toLowerCase()}`, exact: true }).click();
-    await expect(page.locator('[data-slot="alert"][role="status"]')).toHaveCSS("background-color", /rgb\(240, 253, 244\)|oklch\(0.982 0.018 155.826\)/);
-    await page.screenshot({ path: testInfo.outputPath(`${heading.replace(" ", "-")}-saved.png`), fullPage: true });
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.getByRole("heading", { name: heading === "Patient numbers" ? "Invoice numbers" : "Clinical data", exact: true })).toBeVisible();
   }
-  await page.getByRole("button", { name: "Add clinical forms" }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Add report templates" }).click();
-  await page.getByRole("button", { name: "Finish setup" }).click();
+  await expect(page.getByRole("heading", { name: "Clinical data", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Do this later" }).click();
+  await page.getByRole("checkbox", { name: "Treatment Form", exact: true }).check();
+  await page.getByRole("button", { name: "Add selected forms" }).click();
+  await page.getByRole("checkbox", { name: "Treatment Summary", exact: true }).check();
+  await page.getByRole("button", { name: "Add selected templates" }).click();
   await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
   expect(writes.filter((path) => path.endsWith("/organizations_add/"))).toHaveLength(2);
   expect(writes.filter((path) => /\/organizations\/[^/]+\/users\/$/.test(path))).toHaveLength(2);
@@ -638,19 +763,18 @@ test("a failed questionnaire blocks continuation and retries only the missing im
   await resumeAt(context, "questionnaires");
   rejectNextQuestionnaire();
   await page.goto("/admin/onboarding");
-  await page.getByRole("button", { name: "Add clinical forms" }).click();
+  await page.getByRole("checkbox", { name: "Treatment Form", exact: true }).check();
+  await page.getByRole("button", { name: "Add selected forms" }).click();
   await expect(page.getByRole("button", { name: "Try again" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("progressbar", { name: "Clinical forms progress" })).toHaveAttribute("aria-valuenow", "88");
-  await expect(page.getByText("7 of 8 ready", { exact: true })).toBeVisible();
+  await expect(page.getByRole("progressbar", { name: "Clinical forms progress" })).toHaveAttribute("aria-valuenow", "0");
+  await expect(page.getByText("0 of 1 ready", { exact: true })).toBeVisible();
   await expect(page.getByText("Choose Try again below.", { exact: false })).toBeVisible();
   expect(writes.filter((path) => path === "/template/")).toHaveLength(0);
-  expect(writes.filter((path) => path === "/questionnaire/")).toHaveLength(8);
+  expect(writes.filter((path) => path === "/questionnaire/")).toHaveLength(1);
   await page.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByRole("progressbar", { name: "Clinical forms progress" })).toHaveAttribute("aria-valuenow", "100");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Report templates", exact: true })).toBeVisible();
-  expect(writes.filter((path) => path === "/questionnaire/")).toHaveLength(9);
+  expect(writes.filter((path) => path === "/questionnaire/")).toHaveLength(2);
 });
 
 test("every staff row requires a department before any user or membership writes", async ({ page, context }) => {
@@ -660,7 +784,7 @@ test("every staff row requires a department before any user or membership writes
   await page.goto("/admin/onboarding");
   await page.getByRole("button", { name: "Laboratory", exact: true }).click();
   await page.getByRole("button", { name: "Save departments" }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Staff accounts", exact: true })).toBeVisible();
   await page.getByLabel("Starting password for all staff").fill("Starting-password-42");
   await fillStaffRow(page);
   await page.getByRole("button", { name: "Add another staff member" }).click();
@@ -699,7 +823,7 @@ test("every staff row requires a department before any user or membership writes
   expect(membershipPayloads).toEqual([]);
   await department.click();
   await page.getByRole("button", { name: "Add staff", exact: true }).click();
-  await expect(page.getByText("Staff accounts are ready.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Patient numbers", exact: true })).toBeVisible();
   expect(writes.filter((path) => path === "/users/")).toHaveLength(2);
   expect(membershipPayloads.filter((payload) => payload.path.includes("/dept-1/"))).toHaveLength(2);
   expect(membershipPayloads.filter((payload) => payload.path.includes("/administration/"))).toHaveLength(1);
@@ -709,16 +833,20 @@ test("setup uses clear progress, Roles, and an expandable step list", async ({ p
   const { writes } = await backend(context);
   let releaseRoles = () => {};
   const waitForRoles = new Promise<void>((resolve) => { releaseRoles = resolve; });
+  let releaseStates = () => {};
+  const waitForStates = new Promise<void>((resolve) => { releaseStates = resolve; });
   await context.route("**/api/v1/organization/**", async (route) => {
-    if (new URL(route.request().url()).searchParams.get("org_type") === "role") await waitForRoles;
+    const params = new URL(route.request().url()).searchParams;
+    if (params.get("org_type") === "role") await waitForRoles;
+    if (params.get("level_cache") === "0") await waitForStates;
     return route.fallback();
   });
   await page.goto("/admin/onboarding");
   const navigation = page.getByRole("navigation", { name: "Setup progress" });
-  await expect(navigation).toContainText("Step 1 of 9 - Get started");
+  await expect(navigation).toContainText("Step 1 of 10 - Get started");
   await expect(navigation.getByRole("list")).toBeHidden();
   await navigation.getByText("View all steps", { exact: true }).click();
-  await expect(navigation.getByRole("listitem")).toHaveCount(9);
+  await expect(navigation.getByRole("listitem")).toHaveCount(10);
   await expect(navigation.locator('[aria-current="step"]')).toHaveText("1Get started");
   await expect(navigation.getByRole("button")).toHaveCount(0);
   await navigation.getByText("View all steps", { exact: true }).click();
@@ -726,17 +854,18 @@ test("setup uses clear progress, Roles, and an expandable step list", async ({ p
     await page.getByRole("button", { name: "Get started", exact: true }).click();
     await expect(page.getByRole("button", { name: "Preparing CARE...", exact: true })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
+    releaseRoles();
+    await expect(page.getByRole("heading", { name: "Roles", exact: true })).toBeVisible();
+    await expect(page.getByText("Staff groups", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("progressbar", { name: "Roles progress" })).toHaveAttribute("aria-valuetext", "7 of 7 ready");
+    await expect(page.getByText("0 failed", { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("preparation-ready.png"), fullPage: true });
+    await expect(navigation).toContainText("Step 1 of 10 - Get started");
   } finally {
     releaseRoles();
+    releaseStates();
   }
-  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled();
-  await expect(page.getByRole("heading", { name: "Roles", exact: true })).toBeVisible();
-  await expect(page.getByText("Staff groups", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("progressbar", { name: "Roles progress" })).toHaveAttribute("aria-valuetext", "7 of 7 ready");
-  await expect(page.getByText("0 failed", { exact: true })).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath("preparation-ready.png"), fullPage: true });
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(navigation).toContainText("Step 2 of 9 - Clinic location");
+  await expect(navigation).toContainText("Step 2 of 10 - Clinic location");
   await expect(navigation.getByRole("list")).toBeHidden();
   await expect(page.getByRole("heading", { name: "Where is your clinic?" })).toBeFocused();
   expect(writes).toEqual([]);
@@ -767,8 +896,7 @@ test("department quick choices can be toggled and duplicate names explain what t
   await page.screenshot({ path: testInfo.outputPath("departments-mobile.png"), fullPage: true });
   await page.getByLabel("Department name", { exact: true }).fill("ENT");
   await save.click();
-  await expect(page.getByText("Departments are ready.", { exact: false })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Do this later" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Staff accounts", exact: true })).toBeVisible();
   expect(writes.filter((path) => path === "/facility/clinic-1/organizations/")).toHaveLength(2);
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem(`care_onboarding_fe:${location.origin}:progress`)!).departments,
@@ -847,15 +975,14 @@ test("staff can return to skipped departments without losing drafts or saving th
   expect(saved).not.toContain("example_doctor_1");
   await page.getByRole("button", { name: "Laboratory", exact: true }).click();
   await page.getByRole("button", { name: "Save departments" }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Staff accounts", exact: true })).toBeVisible();
   await expect(page.getByLabel("Starting password for all staff")).toHaveValue("Starting-password-42");
   await expect(page.getByLabel("Username")).toHaveValue("example_doctor_1");
   await expect(page.getByRole("checkbox", { name: "Can manage the clinic" })).toBeChecked();
   await expect(page.getByRole("button", { name: "Go back to departments" })).toHaveCount(0);
   await page.getByRole("button", { name: "Laboratory", exact: true }).click();
   await page.getByRole("button", { name: "Add staff", exact: true }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Invoice numbers", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Patient numbers", exact: true })).toBeVisible();
   expect(writes.filter((path) => path === "/users/")).toHaveLength(1);
   expect(membershipPayloads).toHaveLength(2);
 });
@@ -868,6 +995,209 @@ test("staff remains optional when no departments were created", async ({ page, c
   await page.getByRole("button", { name: "Add staff", exact: true }).click();
   await expect(page.getByText("Choose at least one department for this staff member.")).toBeVisible();
   await page.getByRole("button", { name: "Do this later" }).click();
-  await expect(page.getByRole("heading", { name: "Invoice numbers", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Patient numbers", exact: true })).toBeVisible();
   expect(writes).toEqual([]);
 });
+
+for (const step of ["patient-id", "invoice"] as const) {
+  test(`failed ${step} save stays on the step and advances automatically after retry`, async ({ page, context }) => {
+    const { setFacility } = await backend(context);
+    setFacility({ id: "clinic-1", name: "Example Clinic" });
+    await resumeAt(context, step);
+    const resource = step === "patient-id" ? "**/patient_identifier_config/**" : "**/set_invoice_expression/**";
+    let failed = true;
+    await context.route(resource, (route) => {
+      if (route.request().method() === "POST" && failed) {
+        failed = false;
+        return route.fulfill({ status: 500, json: { detail: "Unavailable" } });
+      }
+      return route.fallback();
+    });
+    await page.goto("/admin/onboarding");
+    const heading = step === "patient-id" ? "Patient numbers" : "Invoice numbers";
+    await page.getByRole("textbox").fill("EC");
+    await page.getByRole("button", { name: `Save ${heading.toLowerCase()}`, exact: true }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem(`care_onboarding_fe:${location.origin}:progress`)!).step)).toBe(step);
+    await page.getByRole("button", { name: `Save ${heading.toLowerCase()}`, exact: true }).click();
+    await expect(page.getByRole("heading", { name: step === "patient-id" ? "Invoice numbers" : "Patient numbers", exact: true })).toBeVisible();
+  });
+}
+
+test("older patient numbering checkpoints do not repeat completed invoice setup", async ({ page, context }) => {
+  const { setFacility, writes } = await backend(context);
+  setFacility({ id: "clinic-1", name: "Example Clinic" });
+  await context.addInitScript((progress) => {
+    localStorage.setItem(`care_onboarding_fe:${location.origin}:progress`, JSON.stringify(progress));
+  }, { ...emptyProgress(), step: "patient-id", facilityId: "clinic-1", facilityName: "Example Clinic", done: { invoice: true }, initials: "EC" });
+  await page.goto("/admin/onboarding");
+  await page.getByRole("button", { name: "Save patient numbers", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Clinical data", exact: true })).toBeVisible();
+  expect(writes).toEqual(["/patient_identifier_config/"]);
+});
+
+test("checkpoint storage failure after a successful save blocks automatic advance", async ({ page, context }) => {
+  const { setFacility, writes } = await backend(context);
+  setFacility({ id: "clinic-1", name: "Example Clinic" });
+  await resumeAt(context, "patient-id");
+  await page.goto("/admin/onboarding");
+  await page.getByRole("textbox").fill("EC");
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith("care_onboarding_fe:") && JSON.parse(value).done["patient-id"]) {
+        throw new DOMException("Storage full", "QuotaExceededError");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await page.getByRole("button", { name: "Save patient numbers", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("This browser cannot save setup progress");
+  await expect(page.getByRole("heading", { name: "Invoice numbers", exact: true })).toHaveCount(0);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem(`care_onboarding_fe:${location.origin}:progress`)!));
+  expect(saved.step).toBe("patient-id");
+  expect(saved.done["patient-id"]).not.toBe(true);
+  expect(writes).toEqual(["/patient_identifier_config/"]);
+});
+
+test("a partially failed department import does not advance until all links are saved", async ({ page, context }) => {
+  const { setFacility, writes } = await backend(context);
+  setFacility({ id: "clinic-1", name: "Example Clinic" });
+  await resumeAt(context, "departments");
+  let fail = true;
+  await context.route("**/facility/clinic-1/location/**", (route) => {
+    if (route.request().method() === "POST" && fail) {
+      fail = false;
+      return route.fulfill({ status: 400, json: { detail: "Location rejected" } });
+    }
+    return route.fallback();
+  });
+  await page.goto("/admin/onboarding");
+  await page.getByRole("button", { name: "Laboratory", exact: true }).click();
+  await page.getByRole("button", { name: "Save departments" }).click();
+  await expect(page.getByRole("button", { name: "Try again", exact: true })).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "Departments", exact: true, level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Staff accounts", exact: true })).toBeVisible();
+  expect(writes.filter((path) => path === "/facility/clinic-1/organizations/")).toHaveLength(1);
+});
+
+  test("form and template choices start unchecked, persist, and can both be skipped without writes", async ({ page, context }, testInfo) => {
+    const { setFacility, writes } = await backend(context);
+    setFacility({ id: "clinic-1", name: "Example Clinic" });
+    await resumeAt(context, "questionnaires");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/onboarding");
+    const form = page.getByRole("checkbox", { name: "Treatment Form", exact: true });
+    await expect(page.getByRole("checkbox")).toHaveCount(1);
+    await expect(form).not.toBeChecked();
+    await expect(page.getByRole("button", { name: "Add selected forms" })).toBeDisabled();
+    await expect(page.getByRole("navigation", { name: "Setup progress" })).toContainText("Optional");
+    await form.check();
+    await page.reload();
+    await expect(form).toBeChecked();
+    await form.uncheck();
+    await expect(page.getByRole("button", { name: "Add selected forms" })).toBeDisabled();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("clinical-forms-choices-mobile.png"), fullPage: true });
+    await page.getByRole("button", { name: "Do this later" }).click();
+    await expect(page.getByRole("heading", { name: "Report templates", exact: true })).toBeVisible();
+    const report = page.getByRole("checkbox", { name: "Treatment Summary", exact: true });
+    await expect(page.getByRole("checkbox")).toHaveCount(1);
+    await expect(report).not.toBeChecked();
+    await expect(page.getByRole("button", { name: "Add selected templates" })).toBeDisabled();
+    await report.check();
+    await page.reload();
+    await expect(report).toBeChecked();
+    await report.uncheck();
+    await page.getByRole("button", { name: "Do this later" }).click();
+    await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
+    await expect(page.getByText("is ready with clinical forms", { exact: false })).toHaveCount(0);
+    expect(writes).toEqual([]);
+    const progress = await page.evaluate(() => JSON.parse(localStorage.getItem(`care_onboarding_fe:${location.origin}:progress`)!));
+    expect(progress.skipped.questionnaires).toBe(true);
+    expect(progress.skipped.templates).toBe(true);
+  });
+
+  test("only selected Treatment Form is imported and the template can be left for later", async ({ page, context }) => {
+    const { setFacility, writes, questionnaires } = await backend(context);
+    setFacility({ id: "clinic-1", name: "Example Clinic" });
+    await resumeAt(context, "questionnaires");
+    await page.goto("/admin/onboarding");
+    await page.getByRole("checkbox", { name: "Treatment Form", exact: true }).check();
+    await page.getByRole("button", { name: "Add selected forms" }).click();
+    await expect(page.getByRole("heading", { name: "Report templates", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Do this later" }).click();
+    await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
+    expect([...questionnaires.keys()]).toEqual(["treatment-form"]);
+    const form = questionnaires.get("treatment-form")!;
+    expect(form.version).toBe("0.1");
+    expect(form.subject_type).toBe("encounter");
+    expect(form.questions).toHaveLength(10);
+    expect(form.actions).toEqual([]);
+    expect(form.organizations).toContain("district-0-0");
+    expect(writes.filter((path) => path === "/questionnaire/")).toHaveLength(1);
+    expect(writes.filter((path) => path === "/template/")).toHaveLength(0);
+  });
+
+  test("only selected Treatment Summary imports when Clinical forms is skipped", async ({ page, context }) => {
+    const { setFacility, writes, getTemplate } = await backend(context);
+    setFacility({ id: "clinic-1", name: "Example Clinic" });
+    await resumeAt(context, "questionnaires");
+    await page.goto("/admin/onboarding");
+    await page.getByRole("button", { name: "Do this later" }).click();
+    await page.getByRole("checkbox", { name: "Treatment Summary", exact: true }).check();
+    await page.getByRole("button", { name: "Add selected templates" }).click();
+    await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
+    expect(writes).toEqual(["/template/"]);
+    expect(getTemplate()!.slug_value).toBe("treatment-form-summary");
+    expect(getTemplate()!.template_data).toContain("Treatment Form");
+    expect(getTemplate()!.template_data).not.toContain("discharge-summary--ent");
+    expect(getTemplate()!.template_data).not.toContain("discharge-advice-and-medi");
+  });
+
+  test("a failed selected template stays on the step and retries without importing forms", async ({ page, context }) => {
+    const { setFacility, writes } = await backend(context);
+    setFacility({ id: "clinic-1", name: "Example Clinic" });
+    await resumeAt(context, "templates");
+    let fail = true;
+    await context.route("**/api/v1/template/**", (route) => {
+      if (route.request().method() === "POST" && fail) {
+        fail = false;
+        return route.fulfill({ status: 400, json: { detail: "Template rejected" } });
+      }
+      return route.fallback();
+    });
+    await page.goto("/admin/onboarding");
+    await page.getByRole("checkbox", { name: "Treatment Summary", exact: true }).check();
+    await page.getByRole("button", { name: "Add selected templates" }).click();
+    await expect(page.getByRole("button", { name: "Try again", exact: true })).toBeEnabled();
+    await expect(page.getByRole("heading", { name: "Report templates", exact: true, level: 1 })).toBeVisible();
+    await page.getByRole("button", { name: "Try again", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
+    expect(writes).toEqual(["/template/"]);
+  });
+
+  test("completed old content checkpoints can explicitly add replacements without restarting setup", async ({ page, context }) => {
+    const { setFacility, writes, questionnaires } = await backend(context);
+    setFacility({ id: "clinic-1", name: "Example Clinic" });
+    await context.addInitScript((progress) => {
+      const key = `care_onboarding_fe:${location.origin}:progress`;
+      if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(progress));
+    }, { ...emptyProgress(), version: 4, dataset: "2026-09-30", step: "done", facilityId: "clinic-1", facilityName: "Example Clinic",
+      districtId: "district-0-0", done: { questionnaires: true, templates: true } });
+    await page.goto("/admin/onboarding");
+    await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
+    expect(writes).toEqual([]);
+    await page.getByRole("button", { name: "Add clinical forms", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: "Treatment Form", exact: true })).not.toBeChecked();
+    await page.getByRole("checkbox", { name: "Treatment Form", exact: true }).check();
+    await page.getByRole("button", { name: "Add selected forms" }).click();
+    await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
+    expect([...questionnaires.keys()]).toEqual(["treatment-form"]);
+    await page.getByRole("button", { name: "Add clinical forms", exact: true }).click();
+    await page.getByRole("button", { name: "Add selected forms" }).click();
+    await expect(page.getByRole("heading", { name: "Your clinic is set up" })).toBeVisible();
+    expect(writes.filter((path) => path === "/questionnaire/")).toHaveLength(1);
+  });

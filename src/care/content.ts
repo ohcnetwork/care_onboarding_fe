@@ -1,6 +1,16 @@
 import { api, listAll } from "@/lib/api";
 import type { Outcome, BatchProgress } from "@/lib/batch";
 import { runBatch } from "@/lib/batch";
+import contentIndex from "../../data_source/content-index.json" with { type: "json" };
+
+export const CONTENT_OPTIONS = contentIndex;
+export type ContentKind = keyof typeof CONTENT_OPTIONS;
+
+function checkSelection(kind: ContentKind, selected: string[]) {
+  if (!selected.length || selected.some((slug) => !CONTENT_OPTIONS[kind].some((item) => item.slug === slug))) {
+    throw new Error("Choose at least one of the listed items, or do this later.");
+  }
+}
 
 export type QuestionnaireFixture = {
   id?: string;
@@ -75,13 +85,15 @@ export function createTemplate(fixture: TemplateFixture, facilityId: string): Pr
 }
 
 export async function loadQuestionnaires(
+  selected: string[],
   organizations: string[],
   onProgress: (progress: BatchProgress) => void,
 ): Promise<BatchProgress> {
+  checkSelection("questionnaires", selected);
   if (organizations.length === 0) throw new Error("Clinic setup is missing required information. Please contact your administrator.");
   const { default: questionnaires } = await import("../../data_source/questionnaire_fixtures.json");
   return runBatch(
-    questionnaires,
+    questionnaires.filter((q) => selected.includes(q.slug)),
     (q) => q.title,
     (q) => ensureQuestionnaire(q, organizations),
     onProgress,
@@ -90,16 +102,19 @@ export async function loadQuestionnaires(
 }
 
 export async function loadTemplates(
+  selected: string[],
   facilityId: string,
   onProgress: (progress: BatchProgress) => void,
 ): Promise<BatchProgress> {
+  checkSelection("templates", selected);
   if (!facilityId) throw new Error("Clinic setup is missing required information. Please contact your administrator.");
   const { default: templates } = await import("../../data_source/template_fixtures.json");
   const existing = await listTemplates(facilityId);
   const present = new Set(existing.map((t) => t.slug.replace(/^(f-[0-9a-f-]{36}-|i-)/, "")));
-  return runBatch(templates, (t) => t.name, async (template) => {
+  return runBatch(templates.filter((t) => selected.includes(t.slug_value)), (t) => t.name, async (template) => {
     if (present.has(template.slug_value)) return "skipped";
     await createTemplate(template, facilityId);
+    present.add(template.slug_value);
     return "created";
   }, onProgress, 1);
 }

@@ -1,0 +1,136 @@
+{
+  "title": "Treatment Form",
+  "slug": "treatment-form",
+  "description": "Treatment Form",
+  "questions": [
+    {
+      "id": "7339fa1e-4ed5-4f65-ae86-3d27c89c0fa4",
+      "code": {
+        "code": "29308-4",
+        "system": "http://loinc.org",
+        "display": "Diagnosis"
+      },
+      "text": "Diagnosis",
+      "type": "text",
+      "link_id": "Q-1769071300601",
+      "repeats": false,
+      "enable_when": []
+    },
+    {
+      "id": "4a7d4d76-97ad-4d8c-a46b-41ebaefeee65",
+      "code": {
+        "code": "10154-3",
+        "system": "http://loinc.org",
+        "display": "Chief complaint Narrative - Reported"
+      },
+      "text": "History",
+      "type": "text",
+      "link_id": "Q-1768815218621",
+      "enable_when": []
+    },
+    {
+      "id": "f33243fc-1f60-4a49-9784-72e97747e989",
+      "code": {
+        "code": "29545-1",
+        "system": "http://loinc.org",
+        "display": "Physical findings Narrative"
+      },
+      "text": "Examination Findings",
+      "type": "text",
+      "link_id": "Q-1768815297237",
+      "enable_when": []
+    },
+    {
+      "id": "edcc2c13-c041-47ee-bb20-45d7cd8f995e",
+      "code": {
+        "code": "8648-8",
+        "system": "http://loinc.org",
+        "display": "Hospital course Narrative"
+      },
+      "text": "Course in the Hospital",
+      "type": "text",
+      "link_id": "Q-1768815342821",
+      "repeats": false
+    },
+    {
+      "id": "562b2d79-ab64-4f84-b938-3cf6e45bcfb4",
+      "code": {
+        "code": "11502-2",
+        "system": "http://loinc.org",
+        "display": "Laboratory report"
+      },
+      "text": "Investigation",
+      "type": "text",
+      "link_id": "Q-1769160388720",
+      "repeats": false,
+      "enable_when": []
+    },
+    {
+      "id": "8124001e-9205-45c8-b8d3-7f0f923a41c2",
+      "code": {
+        "code": "69730-0",
+        "system": "http://loinc.org",
+        "display": "Instructions"
+      },
+      "text": "Advise",
+      "type": "text",
+      "link_id": "Q-1768815376176",
+      "repeats": false
+    },
+    {
+      "id": "848dbbc1-506a-4c76-8012-3447a8ec7484",
+      "code": {
+        "code": "18776-5",
+        "system": "http://loinc.org",
+        "display": "Plan of care note"
+      },
+      "text": "Follow Up",
+      "type": "text",
+      "link_id": "Q-1768816222732",
+      "repeats": false,
+      "enable_when": []
+    },
+    {
+      "id": "16a49815-7293-4849-a219-e56ed4f10e8c",
+      "code": {
+        "code": "57833-6",
+        "system": "http://loinc.org",
+        "display": "Prescription for medication"
+      },
+      "text": "Discharge Medication",
+      "type": "text",
+      "link_id": "Q-1768816245416",
+      "repeats": false,
+      "enable_when": []
+    },
+    {
+      "id": "1e4c92b7-cf66-40df-9ef2-83b2c076ccdf",
+      "code": {
+        "code": "42348-3",
+        "system": "http://loinc.org",
+        "display": "Advance directives"
+      },
+      "text": "Surgical/Procedure Note",
+      "type": "text",
+      "link_id": "Q-1768816347983",
+      "repeats": false,
+      "enable_when": []
+    },
+    {
+      "id": "21a30b8f-af14-46fc-a1ad-0fde759ebf9c",
+      "code": {
+        "code": "69730-0",
+        "system": "http://loinc.org",
+        "display": "Instructions"
+      },
+      "text": "When and How to contact in case of Emergency?",
+      "type": "display",
+      "link_id": "Q-1772693504790",
+      "repeats": false,
+      "description": "To report to casualty or contact Dr. Sachin Suresh @ 956 2222 311"
+    }
+  ],
+  "status": "active",
+  "subject_type": "encounter",
+  "version": 0.1
+}

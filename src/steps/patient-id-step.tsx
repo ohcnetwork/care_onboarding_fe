@@ -11,11 +11,10 @@ import { errorText } from "@/lib/format";
 import { useWizard } from "@/state/wizard";
 
 export function PatientIdStep() {
-  const { progress, complete, skip, update } = useWizard();
+  const { progress, complete, skip } = useWizard();
   const [initials, setInitials] = useState(progress.initials);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
-  const [finished, setFinished] = useState("");
   const [touched, setTouched] = useState(false);
   const initialsError = initials.length < 2 ? "Enter at least 2 letters or digits." : undefined;
 
@@ -34,11 +33,8 @@ export function PatientIdStep() {
           display: "Patient ID",
           default_value: patientIdExpression(initials),
         });
-        setFinished(`New patients will receive numbers starting with ${previewPatientId(initials, 0)}.`);
-      } else {
-        setFinished("Patient numbering is already set up in CARE. Nothing was changed.");
       }
-      update({ initials });
+      complete("patient-id", { initials });
     } catch (e) {
       setProblem(errorText(e));
     } finally {
@@ -50,7 +46,7 @@ export function PatientIdStep() {
     <Screen>
       <ScreenHead
         title="Patient numbers"
-        subtitle="Give each new patient a number for their cards and reports."
+        subtitle="This is the patient's admission number, used on their cards and reports."
       />
       <ScreenBody disabled={busy}>
         <div className="flex max-w-[480px] flex-col gap-5">
@@ -58,7 +54,6 @@ export function PatientIdStep() {
             <Input
               id="pinitials"
               value={initials}
-              disabled={!!finished}
               className="max-w-[200px] font-mono uppercase"
               onChange={(e) => setInitials(cleanInitials(e.target.value))}
             />
@@ -73,15 +68,14 @@ export function PatientIdStep() {
             </div>
           </div>
           {problem ? <Alert variant="danger">{problem}</Alert> : null}
-          {finished ? <Alert variant="success"><p className="font-semibold">Patient numbering is ready</p><p>{finished}</p></Alert> : null}
         </div>
       </ScreenBody>
       <StepFoot
-        primary={finished ? "Continue" : "Save patient numbers"}
-        onPrimary={finished ? () => complete("patient-id", { initials }) : () => void save()}
+        primary="Save patient numbers"
+        onPrimary={() => void save()}
         busy={busy}
         busyLabel="Saving patient numbers..."
-        onSkip={finished ? undefined : () => skip("patient-id")}
+        onSkip={() => skip("patient-id")}
       />
     </Screen>
   );

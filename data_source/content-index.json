@@ -1,0 +1,16 @@
+{
+  "questionnaires": [
+    {
+      "slug": "treatment-form",
+      "title": "Treatment Form",
+      "description": "Record treatment, discharge medication and follow-up advice."
+    }
+  ],
+  "templates": [
+    {
+      "slug": "treatment-form-summary",
+      "title": "Treatment Summary",
+      "description": "Print patient details, Treatment Form answers and diagnostic reports."
+    }
+  ]
+}
