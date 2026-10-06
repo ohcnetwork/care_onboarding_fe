@@ -129,7 +129,7 @@ The importer creates or reuses facility-owned activity-definition categories (`r
 
 Each definition uses `kind: service_request`, retains its clinical code/classification and explicitly sends empty charge, specimen, observation and location lists, a null healthcare service/body site/derived URI and empty diagnostic report codes. No supporting resources are created. These are selectable catalog entries, not measured results or complete laboratory workflows. Prices, sample collection and result forms require separate configuration in CARE.
 
-Retries paginate existing records and match exact facility-prefixed slugs case-insensitively; existing definitions and their customizations are never overwritten. A failed category prevents definition writes, and a failed category's activity batch stops later categories until retry. Successful writes are retained. Completed setup can reopen this optional step with **Add clinical data** without restarting completed/skipped form/template imports.
+Retries paginate existing records and match exact facility-prefixed slugs case-insensitively; existing definitions and their customizations are never overwritten. Missing definitions are created through CARE's `activity_definition/upsert/` bulk endpoint in batches of 100 (CARE's default `MAX_DATAPOINTS_PER_UPSERT`). Each batch is saved all-or-nothing, so a rejected batch is retried in full. A failed category prevents definition writes, and a failed category's activity batch stops later categories until retry. Successful writes are retained. Completed setup can reopen this optional step with **Add clinical data** without restarting completed/skipped form/template imports.
 
 ### Treatment content
 

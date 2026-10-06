@@ -1,6 +1,6 @@
 import categoryIndex from "../../data_source/activity-definitions/index.json";
 import { api, listAll } from "@/lib/api";
-import { runBatch, type BatchProgress } from "@/lib/batch";
+import { runBatch, runChunkedBatch, type BatchProgress } from "@/lib/batch";
 import { sameName } from "@/care/organizations";
 
 export const CLINICAL_CATEGORIES = categoryIndex;
@@ -29,6 +29,8 @@ const loaders: Record<string, () => Promise<{ default: { category: string; items
   procedures: () => import("../../data_source/activity-definitions/procedures.json"),
   radiology: () => import("../../data_source/activity-definitions/radiology.json"),
 };
+// CARE's default MAX_DATAPOINTS_PER_UPSERT; each request is saved all-or-nothing.
+export const UPSERT_BATCH_SIZE = 100;
 const fullSlug = (facilityId: string, value: string) => `f-${facilityId}-${value}`.toLowerCase();
 
 export function activityPayload(item: ActivityFixture, category: string) {
@@ -85,13 +87,17 @@ export async function importClinicalData(
   for (const dataset of datasets) {
     const category = categories.get(dataset.key);
     if (!category) throw new Error("A clinical data category is missing. Try again.");
-    const result = await runBatch(dataset.items, (item) => item.title, async (item) => {
-      const slug = fullSlug(facilityId, item.slug_value);
-      if (present.has(slug)) return "skipped";
-      await api.post(`${base}/activity_definition/`, activityPayload(item, category));
-      present.add(slug);
-      return "created";
-    }, (report) => onProgress(dataset.name, report), 2);
+    const result = await runChunkedBatch(dataset.items, (item) => item.title,
+      (item) => present.has(fullSlug(facilityId, item.slug_value)),
+      async (chunk) => {
+        const saved = await api.post<unknown>(`${base}/activity_definition/upsert/`, {
+          datapoints: chunk.map((item) => activityPayload(item, category)),
+        });
+        if (!Array.isArray(saved) || saved.length !== chunk.length) {
+          throw new Error("CARE did not confirm the new clinical data. Try again to check what was saved.");
+        }
+        for (const item of chunk) present.add(fullSlug(facilityId, item.slug_value));
+      }, (report) => onProgress(dataset.name, report), UPSERT_BATCH_SIZE);
     if (result.failed || result.done !== result.total) return false;
   }
   return true;
