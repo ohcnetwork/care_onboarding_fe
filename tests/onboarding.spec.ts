@@ -77,16 +77,17 @@ async function backend(context: BrowserContext, superuser = true) {
       clinicalCategories.push(category);
       return send(category);
     }
-    if (path === "/facility/clinic-1/activity_definition/") {
-      if (method === "GET") return page(activities);
-      clinicalPayloads.push(body);
+    if (path === "/facility/clinic-1/activity_definition/" && method === "GET") return page(activities);
+    if (path === "/facility/clinic-1/activity_definition/upsert/") {
+      clinicalPayloads.push(...body.datapoints);
       if (rejectActivity) {
         rejectActivity = false;
-        return send({ detail: "Activity could not be saved" }, 400);
+        return send([{ detail: "Activity could not be saved" }], 400);
       }
-      const activity = { ...body, slug: `f-clinic-1-${body.slug_value}`, id: `activity-${activities.length}` };
-      activities.push(activity);
-      return send(activity);
+      const saved = body.datapoints.map((item: Record<string, unknown>, i: number) =>
+        ({ ...item, slug: `f-clinic-1-${item.slug_value}`, id: `activity-${activities.length + i}` }));
+      activities.push(...saved);
+      return send(saved);
     }
     if (path === "/facility/clinic-1/organizations/") {
       if (method === "GET") return page(departments);
@@ -200,12 +201,12 @@ test("clinical data loads only checked categories as standalone entries and surv
   await page.screenshot({ path: testInfo.outputPath("clinical-data-mobile.png"), fullPage: true });
   rejectNextActivity();
   await add.click();
-  await expect(page.getByRole("progressbar", { name: "Biochemistry progress" })).toHaveAttribute("aria-valuetext", "28 of 29 ready");
+  await expect(page.getByRole("progressbar", { name: "Biochemistry progress" })).toHaveAttribute("aria-valuetext", "0 of 29 ready");
   expect(clinicalPayloads).toHaveLength(29);
   await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Clinical forms", exact: true })).toBeVisible();
-  expect(clinicalPayloads).toHaveLength(96);
+  expect(clinicalPayloads).toHaveLength(124);
   expect(clinicalCategories.map((c) => c.title)).toEqual(["Biochemistry", "Pathology"]);
   const categories = new Set(clinicalCategories.map((c) => c.slug));
   for (const payload of clinicalPayloads) {
@@ -219,7 +220,7 @@ test("clinical data loads only checked categories as standalone entries and surv
     expect(payload.healthcare_service).toBeNull();
     expect(payload.source).toBeUndefined();
   }
-  expect(writes.every((path) => /\/(resource_category|activity_definition)\/$/.test(path))).toBe(true);
+  expect(writes.every((path) => /\/(resource_category|activity_definition\/upsert)\/$/.test(path))).toBe(true);
   await page.evaluate(() => {
     const key = `care_onboarding_fe:${location.origin}:progress`;
     const progress = JSON.parse(localStorage.getItem(key)!);
@@ -228,7 +229,7 @@ test("clinical data loads only checked categories as standalone entries and surv
   await page.reload();
   await add.click();
   await expect(page.getByRole("heading", { name: "Clinical forms", exact: true })).toBeVisible();
-  expect(clinicalPayloads).toHaveLength(96);
+  expect(clinicalPayloads).toHaveLength(124);
   expect(clinicalCategories).toHaveLength(2);
 });
 
