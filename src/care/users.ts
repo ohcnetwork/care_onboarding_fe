@@ -16,11 +16,12 @@ export type User = {
 
 export type Gender = "male" | "female" | "non_binary" | "transgender";
 
+// Same order and labels as care_fe's GENDER_TYPES (src/common/constants.tsx).
 export const GENDERS: { value: Gender; label: string }[] = [
   { value: "male", label: "Male" },
   { value: "female", label: "Female" },
-  { value: "non_binary", label: "Non-binary" },
   { value: "transgender", label: "Transgender" },
+  { value: "non_binary", label: "Non Binary" },
 ];
 
 export type UserInput = {

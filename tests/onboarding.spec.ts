@@ -307,7 +307,7 @@ test("loads as a federated remote and completes simple onboarding without editin
     await page.getByRole("button", { name: "Do this later" }).click();
   }
   await expect(page.getByRole("heading", { name: "Clinical forms" })).toBeVisible();
-  await expect(page.getByRole("checkbox")).toHaveCount(1);
+  await expect(page.getByRole("checkbox")).toHaveCount(3);
   await expect(page.getByRole("checkbox", { name: "Treatment Form", exact: true })).not.toBeChecked();
   await page.getByRole("checkbox", { name: "Treatment Form", exact: true }).check();
   await page.getByRole("button", { name: "Add selected forms" }).click();
@@ -1091,7 +1091,7 @@ test("a partially failed department import does not advance until all links are 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/admin/onboarding");
     const form = page.getByRole("checkbox", { name: "Treatment Form", exact: true });
-    await expect(page.getByRole("checkbox")).toHaveCount(1);
+    await expect(page.getByRole("checkbox")).toHaveCount(3);
     await expect(form).not.toBeChecked();
     await expect(page.getByRole("button", { name: "Add selected forms" })).toBeDisabled();
     await expect(page.getByRole("navigation", { name: "Setup progress" })).toContainText("Optional");
