@@ -1,4 +1,4 @@
-import { Check, ClipboardList } from "lucide-react";
+import { ArrowRight, Check, ClipboardList } from "lucide-react";
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { listFacilities, type Facility } from "@/care/facility";
@@ -46,10 +46,17 @@ function Done() {
       </ul>
     </div>}
     <p className="mt-4 text-sm text-gray-600">Prices, sample collection and result forms can be configured in CARE settings.</p>
-    <Button className="mt-4" onClick={() => goTo("clinical-data")}>Add clinical data</Button>
-    <Button className="ml-2 mt-4" onClick={() => goTo("questionnaires")}>Add clinical forms</Button>
-    <Button className="ml-2 mt-4" onClick={() => goTo("templates")}>Add report templates</Button>
-    <Button variant="primary" className="mt-6" asChild><a href={`/facility/${progress.facilityId}`}>Open clinic</a></Button>
+    <Button variant="primary" className="mt-6 h-12 w-full px-8 text-base sm:w-auto [&_svg]:size-5" asChild>
+      <a href={`/facility/${progress.facilityId}`}>Open clinic<ArrowRight /></a>
+    </Button>
+    <div className="mt-6 border-t border-line pt-4">
+      <h2 className="text-sm font-semibold text-gray-600">Add more</h2>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button size="sm" onClick={() => goTo("clinical-data")}>Add clinical data</Button>
+        <Button size="sm" onClick={() => goTo("questionnaires")}>Add clinical forms</Button>
+        <Button size="sm" onClick={() => goTo("templates")}>Add report templates</Button>
+      </div>
+    </div>
   </div>;
 }
 
