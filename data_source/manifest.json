@@ -3,7 +3,8 @@
   "sources": {
     "geography": "ohcnetwork/care_desktop/data-loading/data",
     "clinical_catalog": "Curated standalone activity JSON originally extracted from master-repo.xlsx; the legacy workbook and converter are no longer required.",
-    "treatment_content": "User-supplied Treatment Form JSON and Treatment Summary HTML on 2026-10-04."
+    "treatment_content": "User-supplied Treatment Form JSON and Treatment Summary HTML on 2026-10-04.",
+    "paediatric_content": "User-supplied Paediatrician's Form and Paediatric IP Case Sheet JSON on 2026-10-17. An empty enable_when condition and an unnamed placeholder question were removed from the case sheet."
   },
   "content_import": {
     "selection": "Optional per-item checkbox selection; nothing preselected; only checked records are imported.",
@@ -13,7 +14,7 @@
   "included": {
     "states": 36,
     "districts": 726,
-    "questionnaires": 1,
+    "questionnaires": 3,
     "report_templates": 1
   },
   "clinical_catalog": {

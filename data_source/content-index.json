@@ -4,6 +4,16 @@
       "slug": "treatment-form",
       "title": "Treatment Form",
       "description": "Record treatment, discharge medication and follow-up advice."
+    },
+    {
+      "slug": "paediatricians-form",
+      "title": "Paediatrician's Form",
+      "description": "Record a paediatric consultation: complaints, examination, diagnosis and medicines."
+    },
+    {
+      "slug": "paediatric-ip-case-sheet",
+      "title": "Paediatric IP Case Sheet",
+      "description": "Record a paediatric inpatient case sheet: history, examination, investigations and nutrition."
     }
   ],
   "templates": [

@@ -60,8 +60,7 @@ for (const template of templates) {
   assert.equal(template.context, "encounter_base");
   assert.ok(!template.template_data.includes("discharge-summary--ent") && !template.template_data.includes("discharge-advice-and-medi"));
 }
-assert.equal(questionnaires.length, 1);
-assert.equal(questionnaires[0].slug, "treatment-form");
+assert.deepEqual(questionnaires.map((q) => q.slug), ["treatment-form", "paediatricians-form", "paediatric-ip-case-sheet"]);
 assert.equal(templates.length, 1);
 assert.equal(templates[0].slug_value, "treatment-form-summary");
 

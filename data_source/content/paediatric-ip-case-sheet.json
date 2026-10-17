@@ -1,0 +1,797 @@
+{
+  "title": "Paediatric IP Case Sheet",
+  "slug": "paediatric-ip-case-sheet",
+  "description": "",
+  "questions": [
+    {
+      "id": "4796e344-f457-4c4e-8dcf-8cc16bf565e2",
+      "text": "Demographics",
+      "type": "group",
+      "link_id": "Q-1769533650625",
+      "repeats": false,
+      "questions": [
+        {
+          "id": "fb787b60-e3fb-45b7-b82a-151a2078d3c6",
+          "text": "Name",
+          "type": "string",
+          "link_id": "Q-1769533671542"
+        },
+        {
+          "id": "09bd0f86-e0fb-4908-99b3-6a104fe40b68",
+          "text": "Sex",
+          "type": "choice",
+          "link_id": "Q-1769533684808",
+          "answer_option": [
+            {
+              "value": "Male"
+            },
+            {
+              "value": "Female"
+            },
+            {
+              "value": "Others"
+            }
+          ]
+        },
+        {
+          "id": "5d0a488d-f6c7-43c3-839e-626ed6a33361",
+          "text": "Age",
+          "type": "decimal",
+          "link_id": "Q-1769533736867"
+        },
+        {
+          "id": "b8a92527-457e-44c5-8573-7b7a1ae4d30d",
+          "text": "MRD No",
+          "type": "string",
+          "link_id": "Q-1769533758503"
+        },
+        {
+          "id": "ca296c4c-f172-459a-b05d-7ff2f0fa05f4",
+          "text": "Address",
+          "type": "string",
+          "link_id": "Q-1769536783609"
+        },
+        {
+          "id": "3e6d9aaf-a3c7-49bc-91eb-f32672d3223f",
+          "text": "Phone Number",
+          "type": "string",
+          "link_id": "Q-1769536788241"
+        }
+      ],
+      "styling_metadata": {
+        "containerClasses": "grid grid-cols-2"
+      }
+    },
+    {
+      "id": "a884adf5-4862-443d-8885-fe1d56b605fe",
+      "text": "Progress Note and Doctors Orders",
+      "type": "group",
+      "link_id": "Q-1769533805427",
+      "repeats": false,
+      "questions": [
+        {
+          "id": "03b5623f-1858-4633-9300-dd19aa2a26d6",
+          "text": "Progress Notes",
+          "type": "text",
+          "link_id": "Q-1769533839871"
+        },
+        {
+          "id": "97f8d7c0-424d-42fa-97d1-a3948933a018",
+          "text": "Name and Sign of MO",
+          "type": "string",
+          "link_id": "Q-1769533849818"
+        }
+      ],
+      "collect_time": true
+    },
+    {
+      "id": "a89ae34e-ab93-4c5d-9764-f22148d48b7a",
+      "text": "Special Investigations",
+      "type": "group",
+      "link_id": "Q-1769533915650",
+      "repeats": false,
+      "questions": [
+        {
+          "id": "7bc688a2-e56c-424d-aa2b-1a1647a68ce8",
+          "text": "X-Ray",
+          "type": "string",
+          "link_id": "Q-1769533931607"
+        },
+        {
+          "id": "32f1bdfe-26b4-466a-838f-ea4df86395d2",
+          "text": "ECG",
+          "type": "string",
+          "link_id": "Q-1769533937125"
+        },
+        {
+          "id": "0d453067-385e-4fa2-9e18-c8a1514e58c3",
+          "text": "Sonology",
+          "type": "string",
+          "link_id": "Q-1769533940265"
+        },
+        {
+          "id": "6ead9cf0-28eb-492d-b7c9-4509bcdad0e6",
+          "text": "CT Scan",
+          "type": "string",
+          "link_id": "Q-1769533946162"
+        },
+        {
+          "id": "b8fae0c0-8e92-40c8-a345-b39a055e9d2d",
+          "text": "MRI",
+          "type": "string",
+          "link_id": "Q-1769533946286"
+        },
+        {
+          "id": "9d8b11d7-4bf5-4d69-aa52-0e6f19810ac8",
+          "text": "Other Investigations",
+          "type": "string",
+          "link_id": "Q-1769533946407"
+        }
+      ],
+      "collect_time": true
+    },
+    {
+      "id": "6ac46a73-1608-43ad-8874-8d0e860ccded",
+      "text": "Examination at Admission",
+      "type": "group",
+      "link_id": "Q-1769534019126",
+      "repeats": false,
+      "questions": [
+        {
+          "id": "5b80807c-82e3-41de-88c9-fd231cdbcec1",
+          "text": "Vitals",
+          "type": "group",
+          "link_id": "Q-1769534049774",
+          "repeats": false,
+          "questions": [
+            {
+              "id": "a869fb59-c151-4939-b03c-a785d224e2d0",
+              "text": "HR",
+              "type": "string",
+              "link_id": "Q-1769534067846"
+            },
+            {
+              "id": "8e15675c-e14a-4acd-aae8-ef1957b52b38",
+              "text": "RR",
+              "type": "string",
+              "link_id": "Q-1769534086705"
+            },
+            {
+              "id": "7881ad1e-bdeb-4bc4-825d-bfdcc3764e20",
+              "text": "Temperature",
+              "type": "string",
+              "link_id": "Q-1769534120838"
+            },
+            {
+              "id": "45e892e7-e345-4e4d-826c-90507505ba6a",
+              "text": "SP02",
+              "type": "string",
+              "link_id": "Q-1769534121075"
+            },
+            {
+              "id": "3fe44c83-2247-4573-af46-bec392f746fc",
+              "text": "BP",
+              "type": "string",
+              "link_id": "Q-1769534178228"
+            },
+            {
+              "id": "2b823d6c-0a3d-4786-b1a8-bf5fb54bc721",
+              "text": "Peripheral Pulses",
+              "type": "choice",
+              "link_id": "Q-1769534220013",
+              "answer_option": [
+                {
+                  "value": "Present"
+                },
+                {
+                  "value": "Absent"
+                }
+              ]
+            },
+            {
+              "id": "5286d5ad-9964-42eb-b1aa-0a3a6dd0cbf9",
+              "text": "CFT",
+              "type": "choice",
+              "link_id": "Q-1769534220251",
+              "answer_option": [
+                {
+                  "value": "<2sec"
+                },
+                {
+                  "value": "Prolonged"
+                }
+              ]
+            },
+            {
+              "id": "9e5e141b-8dc7-49b6-9879-f0e8efcdfce9",
+              "text": "Peripheries",
+              "type": "choice",
+              "link_id": "Q-1769534220456",
+              "answer_option": [
+                {
+                  "value": "warm"
+                },
+                {
+                  "value": "cool"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6e0f5e8b-c962-474e-9f5a-4aa539305d43",
+          "text": "General Examination",
+          "type": "group",
+          "link_id": "Q-1769534057026",
+          "repeats": false,
+          "questions": [
+            {
+              "id": "e6e925c5-d189-425f-be39-360f3baa09e9",
+              "text": "Pallor",
+              "type": "boolean",
+              "link_id": "Q-1769534430444",
+              "repeats": false
+            },
+            {
+              "id": "0df606ee-8333-4cea-893c-cdbc3872e25e",
+              "text": "Cyanosis",
+              "type": "boolean",
+              "link_id": "Q-1769534801963",
+              "repeats": false
+            },
+            {
+              "id": "c0f164c7-ea7a-4d27-9729-e60006516462",
+              "text": "Icterus",
+              "type": "boolean",
+              "link_id": "Q-1769534802214",
+              "repeats": false
+            },
+            {
+              "id": "64a91bc7-a381-4c19-a641-46b11d7c41a3",
+              "text": "Clubbing",
+              "type": "boolean",
+              "link_id": "Q-1769534802515",
+              "repeats": false
+            },
+            {
+              "id": "e46022cd-6a74-452a-9828-55bd50067671",
+              "text": "Lymphadenopathy",
+              "type": "boolean",
+              "link_id": "Q-1769534802776",
+              "repeats": false
+            },
+            {
+              "id": "4ebe8fda-34c7-4d14-8a7f-b755c89b1cd5",
+              "text": "Oedema",
+              "type": "boolean",
+              "link_id": "Q-1769534809553",
+              "repeats": false
+            }
+          ]
+        },
+        {
+          "id": "c36da455-12d9-4d7c-979f-04d70ba2717c",
+          "text": "Head to Toe Examination",
+          "type": "text",
+          "link_id": "Q-1769534154811"
+        },
+        {
+          "id": "9cf11fb3-aef6-43a3-89b4-a41c9e4bc944",
+          "text": "Systematic Examination",
+          "type": "group",
+          "link_id": "Q-1769535473349",
+          "repeats": false,
+          "questions": [
+            {
+              "id": "671c0312-61e8-4eab-ab57-48642082e5a2",
+              "text": "CVS",
+              "type": "choice",
+              "link_id": "Q-1769535496706",
+              "answer_option": [
+                {
+                  "value": "S1"
+                },
+                {
+                  "value": "S2"
+                }
+              ]
+            },
+            {
+              "id": "64266efd-4ca4-4196-af7f-493bba7eee98",
+              "text": "Murmur",
+              "type": "choice",
+              "link_id": "Q-1769535501451",
+              "answer_option": [
+                {
+                  "value": "Present"
+                },
+                {
+                  "value": "Absent"
+                }
+              ]
+            },
+            {
+              "id": "e6d8cd1d-7810-4521-8995-22e33b478f45",
+              "text": "RS-Air Entry",
+              "type": "string",
+              "link_id": "Q-1769535657304"
+            },
+            {
+              "id": "212b4feb-feac-421f-9bbb-36572d8dacc7",
+              "text": "Added Sounds",
+              "type": "string",
+              "link_id": "Q-1769535657639"
+            },
+            {
+              "id": "b2059972-7946-44e8-aa0d-24d99bb011f8",
+              "text": "No Retractions",
+              "type": "boolean",
+              "link_id": "Q-1769535657884",
+              "repeats": false
+            },
+            {
+              "id": "ef859134-7fa7-4885-a597-6dafa9be28d1",
+              "text": "Nasal Flaring",
+              "type": "boolean",
+              "link_id": "Q-1769535658184",
+              "repeats": false
+            },
+            {
+              "id": "33d5c717-6b63-4e1f-bb8f-01ba8e142a3a",
+              "text": "Grunting",
+              "type": "boolean",
+              "link_id": "Q-1769535850305",
+              "repeats": false
+            },
+            {
+              "id": "cb4ffc02-be07-4aef-95da-e5da586bed7d",
+              "text": "Intercostal Retractions",
+              "type": "boolean",
+              "link_id": "Q-1769535855164",
+              "repeats": false
+            },
+            {
+              "id": "71c742bc-936c-4b06-b848-63372614370b",
+              "text": "Subcostal Retractions",
+              "type": "boolean",
+              "link_id": "Q-1769535855333",
+              "repeats": false
+            },
+            {
+              "id": "7dbebe51-9e52-4f1c-9cd0-bb727fafc785",
+              "text": "P/A",
+              "type": "choice",
+              "link_id": "Q-1769535862496",
+              "answer_option": [
+                {
+                  "value": "Soft"
+                },
+                {
+                  "value": "Distended"
+                },
+                {
+                  "value": "Tender"
+                }
+              ]
+            },
+            {
+              "id": "855564e5-686d-439c-9668-330b0444c6a2",
+              "text": "Bowel Sounds",
+              "type": "string",
+              "link_id": "Q-1769535862674"
+            },
+            {
+              "id": "d479f5b0-2f15-4798-8936-959bcd07abdf",
+              "text": "CNS",
+              "type": "string",
+              "link_id": "Q-1769535862868"
+            },
+            {
+              "id": "c4a4e2a5-304a-4c14-8a7a-997a651ad561",
+              "text": "Cranial Nerves",
+              "type": "string",
+              "link_id": "Q-1769535863062"
+            },
+            {
+              "id": "9d028114-5411-4aef-9e7f-c356b228fe31",
+              "text": "Motor System",
+              "type": "string",
+              "link_id": "Q-1769535863290"
+            },
+            {
+              "id": "b3571b35-96d9-49af-bfd9-7dcc7aec1b2d",
+              "text": "Sensory System",
+              "type": "string",
+              "link_id": "Q-1769535863492"
+            },
+            {
+              "id": "a6a63705-1a3e-4685-a363-e180bce58ca3",
+              "text": "Meningeal System",
+              "type": "string",
+              "link_id": "Q-1769536546847"
+            },
+            {
+              "id": "23c8bf63-766e-4a7e-91cd-bf89284fe3be",
+              "text": "Provisional Diagnosis",
+              "type": "text",
+              "link_id": "Q-1769536547138"
+            },
+            {
+              "id": "f9534062-518a-4254-acda-2461e9d588d3",
+              "text": "Plan of Care",
+              "type": "string",
+              "link_id": "Q-1769536547262"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3e6d825a-5e0a-4232-aaf8-0bc1509a6a51",
+      "text": "Investigation",
+      "type": "group",
+      "link_id": "Q-1769536662215",
+      "repeats": false,
+      "questions": [
+        {
+          "id": "414373d8-2360-405a-b7ae-28e816264d4b",
+          "text": "Hb",
+          "type": "string",
+          "link_id": "Q-1769536938894"
+        },
+        {
+          "id": "ccc71a1a-eaa6-46ed-b5b7-b23b7b452794",
+          "text": "TC",
+          "type": "string",
+          "link_id": "Q-1769536953158"
+        },
+        {
+          "id": "aedcd77a-6382-4569-8472-8a86c066ca7d",
+          "text": "Neutrophils",
+          "type": "string",
+          "link_id": "Q-1769536953310"
+        },
+        {
+          "id": "6b18325d-7355-4f5b-9dcc-c2f6c4ccd42f",
+          "text": "Lymphocytes",
+          "type": "string",
+          "link_id": "Q-1769536953511"
+        },
+        {
+          "id": "1feea861-eb3c-4098-a6c6-cd7902f9b5d3",
+          "text": "Eosinophils",
+          "type": "string",
+          "link_id": "Q-1769536953688"
+        },
+        {
+          "id": "fc847388-bce3-4435-8da4-2528176586bf",
+          "text": "ESR",
+          "type": "string",
+          "link_id": "Q-1769536953865"
+        },
+        {
+          "id": "f59e9919-8919-4852-8f54-bfb67e6f245d",
+          "text": "Platelets",
+          "type": "string",
+          "link_id": "Q-1769536953999"
+        },
+        {
+          "id": "9956e67a-ed1d-4838-aadf-131f41b49914",
+          "text": "PCV",
+          "type": "string",
+          "link_id": "Q-1769536954144"
+        },
+        {
+          "id": "df3f7382-59a4-4071-b7d4-b6e7468959be",
+          "text": "FBS",
+          "type": "string",
+          "link_id": "Q-1769536967750"
+        },
+        {
+          "id": "23fa0e18-e020-4371-8b06-e3d7d9e868e7",
+          "text": "PPBS",
+          "type": "string",
+          "link_id": "Q-1769536967951"
+        },
+        {
+          "id": "88979ed8-de73-4239-a982-622e1d6c0904",
+          "text": "RBS",
+          "type": "string",
+          "link_id": "Q-1769536968164"
+        },
+        {
+          "id": "04f6b75e-5503-4b6d-b19f-033be9886c49",
+          "text": "Urea",
+          "type": "string",
+          "link_id": "Q-1769536968391"
+        },
+        {
+          "id": "9190494a-60e1-4abf-82ed-bd546b482e49",
+          "text": "Creatinine",
+          "type": "string",
+          "link_id": "Q-1769536968611"
+        },
+        {
+          "id": "667140b2-21c2-4dd9-8452-f9529ee6e923",
+          "text": "Uric Acid",
+          "type": "string",
+          "link_id": "Q-1769536968807"
+        },
+        {
+          "id": "7f4b66e8-8fee-4876-890c-78205653b9a9",
+          "text": "Potassium",
+          "type": "string",
+          "link_id": "Q-1769536968963"
+        },
+        {
+          "id": "de044454-0392-4a45-96ff-eb062f36e046",
+          "text": "Chloride",
+          "type": "string",
+          "link_id": "Q-1769536969133"
+        },
+        {
+          "id": "882e0b92-e0c9-47b9-b87a-0b4f7a46876d",
+          "text": "Calcium",
+          "type": "string",
+          "link_id": "Q-1769536969307"
+        },
+        {
+          "id": "2f390298-d741-4847-993e-14368b1c3e5d",
+          "text": "Urine Alb",
+          "type": "string",
+          "link_id": "Q-1769536969479"
+        },
+        {
+          "id": "442811c2-b191-4d2a-99e0-e6379354499b",
+          "text": "Urine Sugar",
+          "type": "string",
+          "link_id": "Q-1769536969652"
+        },
+        {
+          "id": "c030cbce-268e-40f4-a36c-b2bcc82f9081",
+          "text": "U.Deposits",
+          "type": "string",
+          "link_id": "Q-1769536969833"
+        },
+        {
+          "id": "aefb4790-722f-4852-9130-7a9fa313335b",
+          "text": "U.Acetone",
+          "type": "string",
+          "link_id": "Q-1769536970014"
+        }
+      ]
+    },
+    {
+      "id": "2af0c0ed-911f-4652-825b-f7b5a4fb58c8",
+      "text": "Pediatrics Case Sheet",
+      "type": "group",
+      "link_id": "Q-1769537300756",
+      "repeats": false,
+      "questions": [
+        {
+          "id": "ae1f0ebd-b571-4956-b00c-44584b9f561b",
+          "text": "History Given by",
+          "type": "string",
+          "link_id": "Q-1769537323841"
+        },
+        {
+          "id": "d11bdd42-b008-43ed-b5c5-67998f93057d",
+          "text": "Presenting Complaints",
+          "type": "string",
+          "link_id": "Q-1769537349067"
+        },
+        {
+          "id": "4b6d699a-492f-4744-9921-a886145c3db6",
+          "text": "History of Presenting Complaints",
+          "type": "string",
+          "link_id": "Q-1769537349376"
+        },
+        {
+          "id": "cdf93aeb-1792-4ae9-ad41-0cb7381d95d7",
+          "text": "Past Medical History",
+          "type": "string",
+          "link_id": "Q-1769537354018"
+        },
+        {
+          "id": "6800e037-4f11-403b-9a68-e9250e9c0ef3",
+          "text": "Significant Illeness in Past",
+          "type": "choice",
+          "link_id": "Q-1769537354310",
+          "answer_option": [
+            {
+              "value": "Present"
+            },
+            {
+              "value": "Absent"
+            }
+          ]
+        },
+        {
+          "id": "780db314-ffd5-4c2f-83d5-4cc022f602a6",
+          "text": "If present, Specify Details",
+          "type": "string",
+          "link_id": "Q-1769537354644"
+        },
+        {
+          "id": "23c322fd-4add-4608-a1e6-944242a63077",
+          "text": "Medication Currently on",
+          "type": "string",
+          "link_id": "Q-1769537355010"
+        },
+        {
+          "id": "9fff9619-24c3-438f-834c-70193d645eb8",
+          "text": "Family History",
+          "type": "group",
+          "link_id": "Q-1769537355295",
+          "repeats": false,
+          "questions": [
+            {
+              "id": "ba2ee190-4e53-41cb-bd87-0604f01473a3",
+              "text": "H/o similar illness",
+              "type": "boolean",
+              "link_id": "Q-1769537571491",
+              "repeats": false
+            },
+            {
+              "id": "e0832e8a-755e-453c-babb-705604799a35",
+              "text": "H/o of significant illness",
+              "type": "boolean",
+              "link_id": "Q-1769537576976",
+              "repeats": false
+            }
+          ]
+        },
+        {
+          "id": "88a33e74-d9ca-4ce8-b267-edb5d6e03a88",
+          "text": "Perinatal History",
+          "type": "group",
+          "link_id": "Q-1769537355541",
+          "repeats": false,
+          "questions": [
+            {
+              "id": "6f60dca5-2f12-4ef8-b158-dfc102460f76",
+              "text": "Mode of Delivery",
+              "type": "string",
+              "link_id": "Q-1769537675780"
+            },
+            {
+              "id": "65d134a7-1831-4f0f-829f-139e51b23507",
+              "text": "Term/Peterm",
+              "type": "string",
+              "link_id": "Q-1769537680003"
+            },
+            {
+              "id": "cba319c2-d2f9-4307-83ab-968437f17d02",
+              "text": "Indication",
+              "type": "string",
+              "link_id": "Q-1769537680365"
+            },
+            {
+              "id": "ff154b6c-e4d5-4eab-9e86-c4847208f1f3",
+              "text": "Birth Weight",
+              "type": "string",
+              "link_id": "Q-1769537697174"
+            },
+            {
+              "id": "860b582c-ae03-4003-ad5f-4f7a6274ecac",
+              "text": "H/o NICU admission",
+              "type": "boolean",
+              "link_id": "Q-1769537754247",
+              "repeats": false
+            }
+          ]
+        },
+        {
+          "id": "cee3dda8-7b6c-4370-8338-6af188d4303e",
+          "text": "Developmental History",
+          "type": "group",
+          "link_id": "Q-1769537913927",
+          "repeats": false,
+          "questions": [
+            {
+              "id": "f15c9255-904f-405b-b00d-390188eb784c",
+              "text": "All milestones attained at appropriate age",
+              "type": "boolean",
+              "link_id": "Q-1769537950974",
+              "repeats": false
+            },
+            {
+              "id": "5ab96cb0-9cea-48c6-8d82-8e5f0b0c5d9e",
+              "text": "incase of delay, domains affected:",
+              "type": "string",
+              "link_id": "Q-1769537959917"
+            }
+          ]
+        },
+        {
+          "id": "61db9aaf-bdfc-4f3c-9403-c67294b7fa79",
+          "text": "Immnunization History",
+          "type": "group",
+          "link_id": "Q-1769537914360",
+          "repeats": false,
+          "questions": [
+            {
+              "id": "ed7f760f-a43d-44bf-baa3-6405de9bdefa",
+              "text": "Vaccines in National Immunization Schedule given or not",
+              "type": "string",
+              "link_id": "Q-1769538059741"
+            },
+            {
+              "id": "918c58b9-74c9-464c-8d9d-020edb03aa48",
+              "text": "Optional vaccines given or not",
+              "type": "string",
+              "link_id": "Q-1769538069780"
+            }
+          ]
+        },
+        {
+          "id": "7df69637-5be6-47ae-9c65-192a825afe88",
+          "text": "Socio-economic status",
+          "type": "string",
+          "link_id": "Q-1769537914785"
+        }
+      ]
+    },
+    {
+      "id": "c821cd6d-4dd4-4160-a4a6-0eb4857f2c5d",
+      "text": "Nutritional Assessment",
+      "type": "group",
+      "link_id": "Q-1769538169872",
+      "repeats": false,
+      "questions": [
+        {
+          "id": "ecf0873a-0743-4fc7-bf22-94021575af43",
+          "text": "Height",
+          "type": "string",
+          "link_id": "Q-1769538193796"
+        },
+        {
+          "id": "f2627d8b-24f2-418f-830c-cf5bc18ea354",
+          "text": "Weight",
+          "type": "string",
+          "link_id": "Q-1769538200756"
+        },
+        {
+          "id": "caec7686-ece0-453a-b1c7-5573bc17f5b6",
+          "text": "Body Mass Index",
+          "type": "string",
+          "link_id": "Q-1769538207883",
+          "repeats": false
+        },
+        {
+          "id": "a6d645d5-9f9e-4de5-9856-91837df610c8",
+          "text": "Ideal Body Weight",
+          "type": "string",
+          "link_id": "Q-1769538208818"
+        },
+        {
+          "id": "2830f93f-c6fd-4e70-a44a-059bca61f1d9",
+          "text": "Food Allergy",
+          "type": "string",
+          "link_id": "Q-1769538209219"
+        },
+        {
+          "id": "7b3d3ec0-c9f0-4ea6-8a82-92d2d90d5f47",
+          "text": "Diet History (Clinical Finding)",
+          "type": "string",
+          "link_id": "Q-1769538209625"
+        },
+        {
+          "id": "d2c5e529-9479-4c49-b20f-36ce6934f91f",
+          "text": "Diet Recommended",
+          "type": "string",
+          "link_id": "Q-1769538363145"
+        },
+        {
+          "id": "574dc56f-bfe8-4c95-98fb-d42837af8d49",
+          "text": "Name and signature of Nutritionist",
+          "type": "string",
+          "link_id": "Q-1769538363665"
+        }
+      ]
+    }
+  ],
+  "status": "active",
+  "subject_type": "encounter",
+  "version": 0.1
+}

@@ -75,12 +75,14 @@ test("template retries match facility-prefixed slugs without duplicating reports
   assert.equal(writes, 0);
 });
 
-test("catalog contains only the supplied treatment form and its report", () => {
-  assert.deepEqual(CONTENT_OPTIONS.questionnaires.map((q) => q.slug), ["treatment-form"]);
+test("catalog contains only the supplied forms and the treatment report", () => {
+  assert.deepEqual(CONTENT_OPTIONS.questionnaires.map((q) => q.slug), ["treatment-form", "paediatricians-form", "paediatric-ip-case-sheet"]);
   assert.deepEqual(CONTENT_OPTIONS.templates.map((t) => t.slug), ["treatment-form-summary"]);
-  assert.equal(treatmentForms.length, 1);
-  assert.equal(treatmentForms[0].version, "0.1");
-  assert.equal(treatmentForms[0].subject_type, "encounter");
+  assert.equal(treatmentForms.length, 3);
+  for (const form of treatmentForms) {
+    assert.equal(form.version, "0.1");
+    assert.equal(form.subject_type, "encounter");
+  }
   assert.equal(treatmentForms[0].questions.length, 10);
   assert.equal(treatmentTemplates.length, 1);
   assert.ok(treatmentTemplates[0].template_data.includes("Treatment Form"));

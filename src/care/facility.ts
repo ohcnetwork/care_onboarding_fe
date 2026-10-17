@@ -12,22 +12,23 @@ export type Facility = {
   geo_organization?: { id: string; name: string } | null;
 };
 
+// Same list, order and labels as care_fe's FACILITY_TYPES (src/types/facility/facility.ts).
 export const FACILITY_TYPES = [
   "Primary Health Centres",
   "Family Health Centres",
   "Community Health Centres",
-  "Taluk Hospitals",
   "Women and Child Health Centres",
+  "Taluk Hospitals",
   "District Hospitals",
   "Govt Medical College Hospitals",
-  "Private Hospital",
-  "Co-operative hospitals",
-  "Autonomous healthcare facility",
   "Govt Labs",
   "Private Labs",
   "TeleMedicine",
-  "Educational Inst",
-  "Clinical Non Governmental Organization",
+  "Private Hospital",
+  "Autonomous healthcare facility",
+  "Shifting Centre",
+  "Request Approving Center",
+  "Request Fulfilment Center",
   "Other",
 ];
 
